@@ -358,6 +358,98 @@ describe('Test ${i}', () => {
       expect(allOutput.length).toBeGreaterThan(10);
     });
   });
+
+  describe('Test Discovery Failures', () => {
+    it('should exit gracefully when no test files exist', async () => {
+      // Setup package.json with test script but no test files
+      const packageJson = {
+        name: 'test-project',
+        type: 'module',
+        scripts: {
+          test: 'vitest run'
+        }
+      };
+      fs.writeFileSync(
+        path.join(testDir, 'package.json'),
+        JSON.stringify(packageJson, null, 2)
+      );
+
+      // Run fix-all with empty queue and no test files
+      const result = await runTfqCommand(['fix-all', '--max-iterations', '1'], testDir);
+      
+      expect(result.success).toBe(false);
+      const allOutput = result.output + result.error;
+      
+      // Should show test discovery failed message
+      expect(allOutput).toContain('Test Discovery Failed');
+      expect(allOutput).toContain('Exit Code:');
+      
+      // Should show helpful error information
+      expect(allOutput.includes('No test files found') || 
+             allOutput.includes('Error Output:') ||
+             allOutput.includes('Common causes:')).toBe(true);
+      
+      // Should NOT continue with fix iterations
+      expect(allOutput).not.toContain('Iteration 1');
+      expect(allOutput).not.toContain('fixedTests');
+    });
+
+    it('should exit gracefully when test command is not found', async () => {
+      // Setup package.json with non-existent test command
+      const packageJson = {
+        name: 'test-project',
+        scripts: {
+          test: 'nonexistent-test-runner'
+        }
+      };
+      fs.writeFileSync(
+        path.join(testDir, 'package.json'),
+        JSON.stringify(packageJson, null, 2)
+      );
+
+      // Run fix-all
+      const result = await runTfqCommand(['fix-all', '--max-iterations', '1'], testDir);
+      
+      expect(result.success).toBe(false);
+      const allOutput = result.output + result.error;
+      
+      // Should show test discovery failed with exit code 127
+      expect(allOutput).toContain('Test Discovery Failed');
+      expect(allOutput.includes('Exit Code: 127') || 
+             allOutput.includes('command not found')).toBe(true);
+    });
+
+    it('should handle test discovery failures in JSON mode', async () => {
+      // Setup package.json with test script but no test files
+      const packageJson = {
+        name: 'test-project',
+        scripts: {
+          test: 'echo "No test files found" && exit 1'
+        }
+      };
+      fs.writeFileSync(
+        path.join(testDir, 'package.json'),
+        JSON.stringify(packageJson, null, 2)
+      );
+
+      // Run fix-all with JSON output
+      const result = await runTfqCommand(['fix-all', '--max-iterations', '1', '--json'], testDir);
+      
+      expect(result.success).toBe(false);
+      
+      // Should output valid JSON with error details
+      try {
+        const jsonOutput = JSON.parse(result.output);
+        expect(jsonOutput.success).toBe(false);
+        expect(jsonOutput.error).toContain('Test discovery failed');
+        expect(jsonOutput.exitCode).toBeDefined();
+        expect(jsonOutput.command).toBeDefined();
+      } catch (e) {
+        // If not valid JSON, should at least contain error keywords
+        expect(result.output).toContain('Test discovery failed');
+      }
+    });
+  });
 });
 
 // Helper function now imported from test-utils.js

@@ -1150,10 +1150,49 @@ program
               }
               process.exit(1);
             } else {
+              // Test command failed with no parseable test failures
               if (!useJsonOutput(options)) {
-                console.log(chalk.yellow('⚠️ Test command failed but no specific test failures found'));
-                console.log(chalk.gray(`Error: ${testResult.error}`));
+                console.log();
+                console.log(chalk.red.bold('❌ Test Discovery Failed'));
+                console.log(chalk.dim('─'.repeat(50)));
+                
+                // Show command and exit code
+                console.log(chalk.yellow('Command:'), chalk.cyan(testResult.command));
+                console.log(chalk.yellow('Exit Code:'), chalk.red(testResult.exitCode));
+                
+                // Show stderr if present (usually has the error)
+                if (testResult.stderr) {
+                  console.log();
+                  console.log(chalk.yellow('Error Output:'));
+                  console.log(chalk.gray(testResult.stderr));
+                }
+                
+                // Show stdout if no stderr (some tools output errors to stdout)
+                if (!testResult.stderr && testResult.stdout) {
+                  console.log();
+                  console.log(chalk.yellow('Output:'));
+                  console.log(chalk.gray(testResult.stdout));
+                }
+                
+                console.log();
+                console.log(chalk.dim('─'.repeat(50)));
+                console.log(chalk.yellow('💡 Common causes:'));
+                console.log(chalk.gray('  • No test files found in the project'));
+                console.log(chalk.gray('  • Test runner not installed (npm install)'));
+                console.log(chalk.gray('  • Invalid test configuration'));
+                console.log(chalk.gray('  • Missing dependencies'));
+              } else {
+                // JSON output for programmatic use
+                console.log(JSON.stringify({
+                  success: false,
+                  error: 'Test discovery failed',
+                  exitCode: testResult.exitCode,
+                  command: testResult.command,
+                  stderr: testResult.stderr,
+                  stdout: testResult.stdout
+                }));
               }
+              process.exit(1);  // Critical: EXIT here!
             }
           } catch (error: any) {
             if (!useJsonOutput(options)) {
