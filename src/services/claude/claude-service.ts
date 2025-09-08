@@ -4,6 +4,7 @@ import { ClaudeConfigManager } from './config.js';
 import { ConfigManager } from '../../core/config.js';
 import { TestFailureQueue } from '../../core/queue.js';
 import { TestRunner } from '../../core/test-runner.js';
+import { withRetry, RetryConfig, formatRetryStats } from './retry-utils.js';
 
 export class ClaudeService {
   private config: ClaudeConfig;
@@ -87,13 +88,94 @@ export class ClaudeService {
       prompt += `\n\nPrevious error context:\n${errorContext}`;
     }
     
+    // Set up retry configuration (declare here for access in catch block)
+    const retryConfig: RetryConfig = {
+      maxRetries: this.config.maxRetries ?? 0,  // Default to 0 for backwards compatibility
+      retryDelay: this.config.retryDelay ?? 1000,
+      retryBackoffMultiplier: this.config.retryBackoffMultiplier ?? 2,
+      maxRetryDelay: this.config.maxRetryDelay ?? 30000,
+      verbose: this.config.verbose
+    };
+    
     try {
       const timeout = timeoutOverride || this.config.testTimeout || 420000; // Use override or default 7 minutes
       
       console.log('🔄 Starting Claude CLI with real-time streaming...');
       console.log('📝 Using prompt:', prompt.substring(0, 200) + '...');
       console.log('⏰ Timeout set to:', timeout, 'ms');
+      if (retryConfig.maxRetries > 0) {
+        console.log('🔁 Retry enabled: max', retryConfig.maxRetries, 'attempts');
+      }
       
+      // Wrap the Claude execution in retry logic
+      const retryResult = await withRetry(
+        async () => this.executeClaudeProcess(prompt, timeout),
+        retryConfig,
+        `Claude fix for ${filePath}`
+      );
+      
+      const { success, error, outputLength } = retryResult.result;
+      const retryStats = formatRetryStats(retryResult.retryAttempts);
+      
+      if (retryStats) {
+        console.log(`✅ Claude CLI process completed${retryStats}`);
+      } else {
+        console.log('✅ Claude CLI process completed');
+      }
+      
+      return {
+        success,
+        error,
+        duration: Date.now() - startTime,
+        retryAttempts: retryResult.retryAttempts
+      };
+    } catch (error: any) {
+      console.log('❌ Claude process failed:', error.message);
+      
+      const effectiveTimeout = timeoutOverride || this.config.testTimeout || 420000;
+      let errorMessage = 'Unknown error';
+      let retryAttempts = 0;
+      
+      if (error.originalError) {
+        // This is a RetryableError with the original error
+        const origError = error.originalError;
+        retryAttempts = retryConfig.maxRetries; // We exhausted all retries
+        
+        if (origError.timedOut) {
+          errorMessage = `Claude timed out after ${effectiveTimeout}ms${retryConfig.maxRetries > 0 ? ' (after retries)' : ''}`;
+        } else if (origError.exitCode !== undefined) {
+          errorMessage = `Claude exited with code ${origError.exitCode}${retryConfig.maxRetries > 0 ? ' (after retries)' : ''}`;
+          if (origError.stderr) {
+            errorMessage += `: ${origError.stderr}`;
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      } else {
+        // Non-retryable error or direct error
+        if (error.timedOut) {
+          errorMessage = `Claude timed out after ${effectiveTimeout}ms`;
+        } else if (error.exitCode !== undefined) {
+          errorMessage = `Claude exited with code ${error.exitCode}`;
+          if (error.stderr) {
+            errorMessage += `: ${error.stderr}`;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+        duration: Date.now() - startTime,
+        retryAttempts
+      };
+    }
+  }
+
+  private async executeClaudeProcess(prompt: string, timeout: number): Promise<{ success: boolean; error?: string; outputLength: number }> {
+    try {
       // Use streaming approach to show real-time output
       // Pass prompt via stdin to avoid command line length/escaping issues
       const cliArgs = this.claudeConfigManager.buildCliArguments();
@@ -141,7 +223,6 @@ export class ClaudeService {
         console.log('📤 Claude final output:', outputBuffer.trim());
       }
       
-      console.log('✅ Claude CLI process completed');
       console.log(`📄 Total output length: ${allOutput.length} characters`);
       
       // Determine success/error based on Claude Code exit status
@@ -159,30 +240,14 @@ export class ClaudeService {
       return {
         success,
         error: errorMessage,
-        duration: Date.now() - startTime
+        outputLength: allOutput.length
       };
     } catch (error: any) {
-      console.log('❌ Claude process threw an error:', error.message);
-      console.log('🔍 Error details - timedOut:', error.timedOut, 'exitCode:', error.exitCode, 'duration:', error.durationMs);
+      console.log('❌ Claude process error:', error.message);
+      console.log('🔍 Error details - timedOut:', error.timedOut, 'exitCode:', error.exitCode, 'signal:', error.signal);
       
-      let errorMessage = 'Unknown error';
-      
-      if (error.timedOut) {
-        errorMessage = `Claude timed out after ${this.config.testTimeout}ms`;
-      } else if (error.exitCode !== undefined) {
-        errorMessage = `Claude exited with code ${error.exitCode}`;
-        if (error.stderr) {
-          errorMessage += `: ${error.stderr}`;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        duration: Date.now() - startTime
-      };
+      // Re-throw the error to be handled by retry logic
+      throw error;
     }
   }
 

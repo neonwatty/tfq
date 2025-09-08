@@ -6,6 +6,12 @@ export interface ClaudeConfig {
   prompt?: string;
   _comment?: string;  // Helper comment for users (not used by code)
   
+  // Retry configuration for headless mode resilience
+  maxRetries?: number;                  // Max retry attempts (0-10, default: 0)
+  retryDelay?: number;                  // Initial delay in ms (default: 1000)
+  retryBackoffMultiplier?: number;      // Exponential backoff factor (default: 2)
+  maxRetryDelay?: number;               // Max delay cap in ms (default: 30000)
+  
   // All documented CLI options
   addDir?: string[];                    // --add-dir: Additional working directories
   allowedTools?: string[];              // --allowedTools: Tools allowed without prompting  
@@ -29,6 +35,7 @@ export interface ClaudeFixResult {
   error?: string;
   duration: number;
   iterations?: number;
+  retryAttempts?: number;  // Number of retry attempts made
 }
 
 export interface ClaudeValidationResult {

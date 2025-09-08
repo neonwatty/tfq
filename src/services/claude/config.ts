@@ -12,7 +12,12 @@ export class ClaudeConfigManager {
       enabled: false,
       maxIterations: 20,
       testTimeout: 420000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.'
+      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.',
+      // Retry configuration defaults
+      maxRetries: 0,  // Default to 0 for backwards compatibility
+      retryDelay: 1000,
+      retryBackoffMultiplier: 2,
+      maxRetryDelay: 30000
     };
     
     // Deep merge the provided config with defaults
@@ -49,6 +54,35 @@ export class ClaudeConfigManager {
       if (typeof claude.maxIterations !== 'number' || claude.maxIterations < 1) {
         console.warn('Warning: Claude maxIterations must be a positive number');
         claude.maxIterations = 20; // Default
+      }
+    }
+    
+    // Validate retry configuration
+    if (claude.maxRetries !== undefined) {
+      if (typeof claude.maxRetries !== 'number' || claude.maxRetries < 0 || claude.maxRetries > 10) {
+        console.warn('Warning: Claude maxRetries must be a number between 0 and 10');
+        claude.maxRetries = 0; // Default to no retries
+      }
+    }
+    
+    if (claude.retryDelay !== undefined) {
+      if (typeof claude.retryDelay !== 'number' || claude.retryDelay < 0) {
+        console.warn('Warning: Claude retryDelay must be a positive number');
+        claude.retryDelay = 1000; // Default to 1 second
+      }
+    }
+    
+    if (claude.retryBackoffMultiplier !== undefined) {
+      if (typeof claude.retryBackoffMultiplier !== 'number' || claude.retryBackoffMultiplier < 1) {
+        console.warn('Warning: Claude retryBackoffMultiplier must be a number >= 1');
+        claude.retryBackoffMultiplier = 2; // Default
+      }
+    }
+    
+    if (claude.maxRetryDelay !== undefined) {
+      if (typeof claude.maxRetryDelay !== 'number' || claude.maxRetryDelay < (claude.retryDelay || 1000)) {
+        console.warn('Warning: Claude maxRetryDelay must be >= retryDelay');
+        claude.maxRetryDelay = 30000; // Default to 30 seconds
       }
     }
     
@@ -340,7 +374,12 @@ export class ClaudeConfigManager {
       enabled: false,
       maxIterations: 20,
       testTimeout: 420000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.'
+      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.',
+      // Retry configuration defaults
+      maxRetries: 0,  // Default to 0 for backwards compatibility
+      retryDelay: 1000,
+      retryBackoffMultiplier: 2,
+      maxRetryDelay: 30000
     };
   }
 }

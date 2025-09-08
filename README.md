@@ -649,6 +649,50 @@ tfq/
 └── package.json
 ```
 
+## Testing
+
+TFQ has comprehensive test coverage including unit, integration, and end-to-end tests.
+
+### Running Tests
+
+```bash
+# Quick test suite (recommended for development)
+npm test                     # Unit, integration, and example tests
+
+# Full test coverage
+npm run test:all+e2e         # Includes E2E tests with Claude CLI
+
+# Individual test suites
+npm run test:unit            # Unit tests only
+npm run test:integration     # Integration tests only
+npm run test:examples        # Example tests only
+```
+
+### End-to-End Testing with Claude CLI
+
+E2E tests verify complete workflows including real Claude CLI integration:
+
+```bash
+# Check if Claude CLI is available
+npm run test:e2e:check       # ✅ Claude CLI available
+
+# Run E2E tests (requires Claude CLI installed)
+npm run test:e2e             # ~10 minutes, tests real Claude workflows
+```
+
+**E2E test coverage includes:**
+- TFQ initialization with auto-detection
+- Test failure queue management
+- Real Claude CLI integration for test fixing
+- `fix-next` and `fix-all` workflows
+- Error handling and timeout management
+- Configuration and progress reporting
+
+**Prerequisites for E2E tests:**
+- Claude CLI must be installed (get it from [claude.ai/code](https://claude.ai/code))
+- Tests automatically set `TFQ_TEST_CLAUDE=true` environment variable
+- Tests run in isolated temporary directories with real test failures
+
 ## Contributing
 
 Contributions are welcome!  Please feel free to submit a Pull Request.
