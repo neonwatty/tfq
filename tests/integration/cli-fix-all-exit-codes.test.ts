@@ -14,8 +14,7 @@ describe('fix-all Exit Code Scenarios', () => {
     testDir = path.join('/tmp', `tfq-exit-test-${timestamp}-${random}`);
     fs.mkdirSync(testDir, { recursive: true });
     
-    // Initialize tfq in test directory (without --ci to use local database)
-    execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+    // Don't initialize tfq here - let each test do it as needed
   });
 
   afterEach(() => {
@@ -27,6 +26,9 @@ describe('fix-all Exit Code Scenarios', () => {
 
   describe('Exit Code 0 - Normal Scenarios', () => {
     it('should exit with code 0 when no test files exist', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       // Setup package.json with test script but no test files
       const packageJson = {
         name: 'test-project',
@@ -56,29 +58,36 @@ describe('fix-all Exit Code Scenarios', () => {
     });
 
     it('should exit with code 0 when all tests are passing', () => {
-      // Create a passing test file
-      const testFile = path.join(testDir, 'passing.test.js');
-      const content = `
-        describe('Passing test', () => {
-          it('should pass', () => {
-            expect(1 + 1).toBe(2);
-          });
-        });
-      `;
-      fs.writeFileSync(testFile, content);
+      // Setup .tfqrc with database and custom test command that always passes
+      const tfqConfig = {
+        database: {
+          path: path.join(testDir, '.tfq/tfq.db')
+        },
+        testCommands: {
+          'javascript:vitest': 'echo "All tests passed" && exit 0'
+        }
+      };
+      fs.mkdirSync(path.join(testDir, '.tfq'), { recursive: true });
+      fs.writeFileSync(
+        path.join(testDir, '.tfqrc'),
+        JSON.stringify(tfqConfig, null, 2)
+      );
 
-      // Setup package.json with proper test runner
+      // Setup package.json 
       const packageJson = {
         name: 'test-project',
-        type: 'module',
         scripts: {
-          test: 'node -e "console.log(\\"All tests passed!\\"); process.exit(0)"'
+          test: 'echo "Tests running"'
         }
       };
       fs.writeFileSync(
         path.join(testDir, 'package.json'),
         JSON.stringify(packageJson, null, 2)
       );
+
+      // Create a dummy test file so tfq detects it as a test project
+      const testFile = path.join(testDir, 'dummy.test.js');
+      fs.writeFileSync(testFile, '// dummy test file');
 
       // Run fix-all and capture exit code
       let exitCode = 0;
@@ -100,11 +109,26 @@ describe('fix-all Exit Code Scenarios', () => {
     });
 
     it('should exit with code 0 when no failed tests found', () => {
-      // Setup package.json that reports success but no specific test failures
+      // Setup .tfqrc with database and custom test command that passes with no failures
+      const tfqConfig = {
+        database: {
+          path: path.join(testDir, '.tfq/tfq.db')
+        },
+        testCommands: {
+          'javascript:vitest': 'echo "Tests completed successfully" && exit 0'
+        }
+      };
+      fs.mkdirSync(path.join(testDir, '.tfq'), { recursive: true });
+      fs.writeFileSync(
+        path.join(testDir, '.tfqrc'),
+        JSON.stringify(tfqConfig, null, 2)
+      );
+
+      // Setup package.json
       const packageJson = {
         name: 'test-project',
         scripts: {
-          test: 'echo "Tests completed successfully" && exit 0'
+          test: 'echo "Tests running"'
         }
       };
       fs.writeFileSync(
@@ -136,6 +160,9 @@ describe('fix-all Exit Code Scenarios', () => {
     });
 
     it('should exit with code 0 and return proper JSON for no test files', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       // Setup package.json with test script but no test files
       const packageJson = {
         name: 'test-project',
@@ -175,6 +202,9 @@ describe('fix-all Exit Code Scenarios', () => {
 
   describe('Exit Code 1 - Error Scenarios', () => {
     it('should exit with code 1 for invalid max-iterations', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       let exitCode = 0;
       try {
         execSync(`node ${tfqBin} fix-all --max-iterations 0`, { 
@@ -190,6 +220,9 @@ describe('fix-all Exit Code Scenarios', () => {
     });
 
     it('should exit with code 1 for invalid test-timeout', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       let exitCode = 0;
       try {
         execSync(`node ${tfqBin} fix-all --test-timeout 1000`, { 
@@ -205,6 +238,9 @@ describe('fix-all Exit Code Scenarios', () => {
     });
 
     it('should exit with code 1 when test discovery fails', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       // Setup package.json with non-existent test command
       const packageJson = {
         name: 'test-project',
@@ -239,6 +275,9 @@ describe('fix-all Exit Code Scenarios', () => {
 
   describe('Exit Code Context - Final Status', () => {
     it('should exit with code 1 when tests remain unfixed after iterations', () => {
+      // Initialize tfq
+      execSync(`node ${tfqBin} init --skip-claude`, { cwd: testDir });
+      
       // Create a failing test
       const testFile = path.join(testDir, 'failing.test.js');
       const content = `

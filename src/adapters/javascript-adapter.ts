@@ -56,11 +56,11 @@ export class JavaScriptAdapter extends BaseAdapter {
     
     switch (framework.toLowerCase()) {
       case 'jest':
-        return testPath ? `npx jest ${basePath}` : 'npm test';
+        return testPath ? `npx jest --watchAll=false ${basePath}` : 'npx jest --watchAll=false';
       case 'mocha':
         return testPath ? `npx mocha ${basePath}` : 'npm test';
       case 'vitest':
-        return testPath ? `npx vitest run ${basePath}` : 'npm test';
+        return testPath ? `npx vitest run ${basePath}` : 'npx vitest run';
       case 'jasmine':
         return testPath ? `npx jasmine ${basePath}` : 'npm test';
       case 'ava':

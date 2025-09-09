@@ -270,7 +270,7 @@ pytest-django==4.5.0
 
       expect(result.language).toBe('javascript');
       expect(result.framework).toBe('vitest');
-      expect(result.command).toBe('npm test');
+      expect(result.command).toBe('npx vitest run');
     });
 
     it('should support legacy framework-only option', () => {

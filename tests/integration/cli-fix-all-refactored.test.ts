@@ -125,7 +125,7 @@ describe('Test ${i}', () => {
       
       expect(result.success).toBe(false);
       const allOutput = result.output + result.error;
-      expect(allOutput).toContain('Test timeout must be a number between 60000ms (1 min) and 600000ms (10 min)');
+      expect(allOutput).toContain('Test timeout must be a number between 300000ms (5 min) and 900000ms (15 min)');
     });
   });
 
@@ -303,7 +303,7 @@ describe('Test ${i}', () => {
       await runTfqCommand(['add', testFile], testDir);
 
       // Should accept valid timeout
-      const result = await runTfqCommand(['fix-all', '--test-timeout', '120000'], testDir);
+      const result = await runTfqCommand(['fix-all', '--test-timeout', '420000'], testDir);
       
       expect(result.success).toBe(false); // Claude disabled
       const allOutput = result.output + result.error;
@@ -395,11 +395,26 @@ describe('Test ${i}', () => {
     });
 
     it('should exit gracefully when test command is not found', async () => {
-      // Setup package.json with non-existent test command
+      // Setup .tfqrc with database and non-existent test command
+      const tfqConfig = {
+        database: {
+          path: path.join(testDir, '.tfq/tfq.db')
+        },
+        testCommands: {
+          'javascript:vitest': 'nonexistent-test-runner'
+        }
+      };
+      fs.mkdirSync(path.join(testDir, '.tfq'), { recursive: true });
+      fs.writeFileSync(
+        path.join(testDir, '.tfqrc'),
+        JSON.stringify(tfqConfig, null, 2)
+      );
+
+      // Setup package.json
       const packageJson = {
         name: 'test-project',
         scripts: {
-          test: 'nonexistent-test-runner'
+          test: 'echo "test"'
         }
       };
       fs.writeFileSync(

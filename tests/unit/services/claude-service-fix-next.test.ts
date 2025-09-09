@@ -390,7 +390,7 @@ describe('ClaudeService.fixNextTest() Method', () => {
       const testPath = '/path/to/test.js';
       mockQueue.enqueue(testPath, 1);
       
-      const customTimeout = 180000; // 3 minutes - within valid range
+      const customTimeout = 480000; // 8 minutes - within valid range
       
       // Execute with timeout override  
       await claudeService.fixNextTest(mockQueue, {
@@ -441,7 +441,7 @@ describe('ClaudeService.fixNextTest() Method', () => {
       
       // Test with invalid timeout (too low)
       await claudeService.fixNextTest(mockQueue, {
-        testTimeout: 30000, // 30 seconds - below minimum
+        testTimeout: 200000, // 3.3 minutes - below minimum
         useJsonOutput: true
       });
       
@@ -460,7 +460,7 @@ describe('ClaudeService.fixNextTest() Method', () => {
       
       // Test with invalid timeout (too high)
       await claudeService.fixNextTest(mockQueue, {
-        testTimeout: 700000, // 11+ minutes - above maximum
+        testTimeout: 1000000, // 16+ minutes - above maximum
         useJsonOutput: true
       });
       

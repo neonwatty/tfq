@@ -11,7 +11,7 @@ export class ClaudeConfigManager {
     const defaults: ClaudeConfig = {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 420000,
+      testTimeout: 600000,
       prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.',
       // Retry configuration defaults
       maxRetries: 0,  // Default to 0 for backwards compatibility
@@ -43,9 +43,9 @@ export class ClaudeConfigManager {
   private validateClaudeConfig(claude: ClaudeConfig): void {
     // Validate testTimeout
     if (claude.testTimeout !== undefined) {
-      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 60000 || claude.testTimeout > 600000) {
-        console.warn('Warning: Claude testTimeout must be a number between 60000ms (1 min) and 600000ms (10 min)');
-        claude.testTimeout = 420000; // Default to 7 minutes
+      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 300000 || claude.testTimeout > 900000) {
+        console.warn('Warning: Claude testTimeout must be a number between 300000ms (5 min) and 900000ms (15 min)');
+        claude.testTimeout = 600000; // Default to 10 minutes
       }
     }
     
@@ -324,7 +324,7 @@ export class ClaudeConfigManager {
   }
 
   getTestTimeout(): number {
-    return this.config.testTimeout || 420000;
+    return this.config.testTimeout || 600000;
   }
 
   /**
@@ -406,7 +406,7 @@ export class ClaudeConfigManager {
     return {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 420000,
+      testTimeout: 600000,
       prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.',
       // Retry configuration defaults
       maxRetries: 0,  // Default to 0 for backwards compatibility

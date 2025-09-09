@@ -133,7 +133,7 @@ describe('Claude Service', () => {
       
       expect(service.isEnabled()).toBe(false);
       expect(service.getMaxIterations()).toBe(20);
-      expect(service.getTestTimeout()).toBe(420000);
+      expect(service.getTestTimeout()).toBe(600000);
     });
 
     it('should initialize with custom config', () => {
