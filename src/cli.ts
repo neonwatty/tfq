@@ -1005,7 +1005,7 @@ program
   .command('fix-next')
   .description('Fix the next test in the queue using Claude')
   .option('--claude-path <path>', 'Path to Claude executable')
-  .option('--test-timeout <ms>', 'Timeout per test in milliseconds (300000-900000ms, default: 600000ms)', '600000')
+  .option('--test-timeout <ms>', 'Timeout per test in milliseconds (600000-1800000ms, default: 900000ms)', '900000')
   .option('--verbose', 'Enable verbose output with stream-json format')
   .option('--json', 'Output in JSON format')
   .action(async (options) => {
@@ -1028,8 +1028,8 @@ program
       // Validate test timeout if provided
       if (options.testTimeout) {
         const timeout = parseInt(options.testTimeout, 10);
-        if (isNaN(timeout) || timeout < 300000 || timeout > 900000) {
-          const errorMsg = 'Test timeout must be a number between 300000ms (5 min) and 900000ms (15 min)';
+        if (isNaN(timeout) || timeout < 600000 || timeout > 1800000) {
+          const errorMsg = 'Test timeout must be a number between 600000ms (10 min) and 1800000ms (30 min)';
           if (useJsonOutput(options)) {
             console.log(JSON.stringify({ success: false, error: errorMsg }));
           } else {
@@ -1134,7 +1134,7 @@ program
   .description('Fix all tests in the queue using Claude')
   .option('--claude-path <path>', 'Path to Claude executable')
   .option('--max-iterations <number>', 'Maximum number of tests to fix', '20')
-  .option('--test-timeout <ms>', 'Timeout per test in milliseconds (300000-900000ms, default: 600000ms)', '600000')
+  .option('--test-timeout <ms>', 'Timeout per test in milliseconds (600000-1800000ms, default: 900000ms)', '900000')
   .option('--verbose', 'Enable verbose output with stream-json format')
   .option('--json', 'Output in JSON format')
   .action(async (options) => {
@@ -1170,8 +1170,8 @@ program
       // Validate test timeout if provided
       if (options.testTimeout) {
         const timeout = parseInt(options.testTimeout, 10);
-        if (isNaN(timeout) || timeout < 300000 || timeout > 900000) {
-          const errorMsg = 'Test timeout must be a number between 300000ms (5 min) and 900000ms (15 min)';
+        if (isNaN(timeout) || timeout < 600000 || timeout > 1800000) {
+          const errorMsg = 'Test timeout must be a number between 600000ms (10 min) and 1800000ms (30 min)';
           if (useJsonOutput(options)) {
             console.log(JSON.stringify({ success: false, error: errorMsg }));
           } else {

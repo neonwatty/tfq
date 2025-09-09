@@ -94,7 +94,7 @@ describe('JSON output test', () => {
       const result = await runTfqCommand(['fix-next', '--test-timeout', '500'], testDir);
       
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Test timeout must be a number between 300000ms (5 min) and 900000ms (15 min)');
+      expect(result.error).toContain('Test timeout must be a number between 600000ms (10 min) and 1800000ms (30 min)');
     });
 
     it('should accept valid test timeout parameter', async () => {
@@ -103,7 +103,7 @@ describe('JSON output test', () => {
       fs.writeFileSync(testFile, testContent);
       await runTfqCommand(['add', testFile], testDir);
 
-      const result = await runTfqCommand(['fix-next', '--test-timeout', '420000'], testDir);
+      const result = await runTfqCommand(['fix-next', '--test-timeout', '720000'], testDir);
       
       // Should fail because Claude is disabled, but timeout validation should pass
       expect(result.success).toBe(false);

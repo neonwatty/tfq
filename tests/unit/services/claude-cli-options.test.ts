@@ -348,9 +348,11 @@ describe('Claude CLI Options Comprehensive Tests', () => {
       const manager = new ClaudeConfigManager(config);
       const args = manager.buildCliArguments();
 
-      // Should still generate valid basic arguments
+      // Should generate basic arguments. Since outputFormat is explicitly null, 
+      // only verbose flag should be added (not output-format)
       expect(args).toContain('-p');
-      expect(args.length).toBe(1); // Only -p flag
+      expect(args).toContain('--verbose');
+      expect(args.length).toBe(2); // -p, --verbose (outputFormat null overrides default)
     });
 
     it('should handle all validation warnings together', () => {

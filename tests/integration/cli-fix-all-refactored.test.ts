@@ -125,7 +125,7 @@ describe('Test ${i}', () => {
       
       expect(result.success).toBe(false);
       const allOutput = result.output + result.error;
-      expect(allOutput).toContain('Test timeout must be a number between 300000ms (5 min) and 900000ms (15 min)');
+      expect(allOutput).toContain('Test timeout must be a number between 600000ms (10 min) and 1800000ms (30 min)');
     });
   });
 
@@ -303,7 +303,7 @@ describe('Test ${i}', () => {
       await runTfqCommand(['add', testFile], testDir);
 
       // Should accept valid timeout
-      const result = await runTfqCommand(['fix-all', '--test-timeout', '420000'], testDir);
+      const result = await runTfqCommand(['fix-all', '--test-timeout', '720000'], testDir);
       
       expect(result.success).toBe(false); // Claude disabled
       const allOutput = result.output + result.error;

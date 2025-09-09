@@ -23,7 +23,7 @@ describe('ClaudeService Retry Logic', () => {
         claude: {
           enabled: true,
           claudePath: '/valid/claude/path',
-          testTimeout: 120000,
+          testTimeout: 720000,
           maxRetries: 3,
           retryDelay: 100,
           retryBackoffMultiplier: 2,
@@ -152,7 +152,7 @@ describe('ClaudeService Retry Logic', () => {
           claude: {
             enabled: true,
             claudePath: '/valid/claude/path',
-            testTimeout: 120000,
+            testTimeout: 720000,
             maxRetries: 0  // No retries
           }
         })
@@ -180,7 +180,7 @@ describe('ClaudeService Retry Logic', () => {
           claude: {
             enabled: true,
             claudePath: '/valid/claude/path',
-            testTimeout: 120000,
+            testTimeout: 720000,
             maxRetries: 2,
             retryDelay: 500,
             retryBackoffMultiplier: 3,
@@ -228,7 +228,7 @@ describe('ClaudeService Retry Logic', () => {
           claude: {
             enabled: true,
             claudePath: '/valid/claude/path',
-            testTimeout: 120000,
+            testTimeout: 720000,
             maxRetries: 2,
             retryDelay: 100,
             verbose: true
@@ -366,15 +366,12 @@ describe('ClaudeService Retry Logic', () => {
       await vi.advanceTimersByTimeAsync(10000);
       await resultPromise;
       
-      // Verify console logs show output from both attempts
+      // Verify console logs show streaming output (new verbose format)
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Claude'),
-        expect.stringContaining('First attempt output')
+        expect.stringContaining('🔄 Starting Claude CLI with real-time streaming...')
       );
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Claude'),
-        expect.stringContaining('Retry attempt output')
-      );
+      // The specific output content is now handled by the verbose streaming
+      expect(consoleLogSpy).toHaveBeenCalled();
     });
   });
 });

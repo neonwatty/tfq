@@ -141,9 +141,12 @@ export class InitService {
           config.claude = {
             enabled: true,
             maxIterations: 10,
-            testTimeout: 300000,
+            testTimeout: 900000,
             prompt: "Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.",
             _comment: "The {testFilePath} placeholder will be replaced with the actual test file path when Claude is invoked",
+            // Enable verbose output by default to show Claude's real-time progress
+            verbose: true,
+            outputFormat: "stream-json",
             // Retry configuration for headless mode resilience
             maxRetries: 3,
             retryDelay: 1000,

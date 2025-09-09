@@ -150,14 +150,17 @@ export async function interactiveInit(
         
         const testTimeout = parseInt(await question(
           'Timeout per test fix (milliseconds)',
-          '300000'
-        ), 10) || 300000;
+          '900000'
+        ), 10) || 900000;
         
         claudeConfig = {
           enabled: true,
           maxIterations,
           testTimeout,
           prompt: "Fix the syntax and logic errors in this test file and return only the corrected code",
+          // Enable verbose output by default to show Claude's real-time progress
+          verbose: true,
+          outputFormat: "stream-json" as const,
           ...(claudePath && { claudePath })
         };
         

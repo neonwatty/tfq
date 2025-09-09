@@ -105,7 +105,7 @@ export class ClaudeService {
     };
     
     try {
-      const timeout = timeoutOverride || this.config.testTimeout || 600000; // Use override or default 10 minutes
+      const timeout = timeoutOverride || this.config.testTimeout || 900000; // Use override or default 15 minutes
       
       console.log('🔄 Starting Claude CLI with real-time streaming...');
       console.log('📝 Using prompt:', prompt.substring(0, 200) + '...');
@@ -139,7 +139,7 @@ export class ClaudeService {
     } catch (error: any) {
       console.log('❌ Claude process failed:', error.message);
       
-      const effectiveTimeout = timeoutOverride || this.config.testTimeout || 600000;
+      const effectiveTimeout = timeoutOverride || this.config.testTimeout || 900000;
       let errorMessage = 'Unknown error';
       let retryAttempts = 0;
       
@@ -301,7 +301,7 @@ export class ClaudeService {
   }
 
   getTestTimeout(): number {
-    return this.config.testTimeout || 600000;
+    return this.config.testTimeout || 900000;
   }
 
   async fixNextTest(queue: TestFailureQueue, options: {
@@ -348,7 +348,7 @@ export class ClaudeService {
     let timeoutOverride: number | undefined;
     if (options.testTimeout) {
       const timeout = parseInt(options.testTimeout.toString(), 10);
-      if (!isNaN(timeout) && timeout >= 300000 && timeout <= 900000) {
+      if (!isNaN(timeout) && timeout >= 600000 && timeout <= 1800000) {
         timeoutOverride = timeout;
       }
     }

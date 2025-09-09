@@ -11,8 +11,11 @@ export class ClaudeConfigManager {
     const defaults: ClaudeConfig = {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 600000,
+      testTimeout: 900000,
       prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.',
+      // Enable verbose output by default to show Claude's real-time progress
+      verbose: true,
+      outputFormat: 'stream-json',
       // Retry configuration defaults
       maxRetries: 0,  // Default to 0 for backwards compatibility
       retryDelay: 1000,
@@ -43,9 +46,9 @@ export class ClaudeConfigManager {
   private validateClaudeConfig(claude: ClaudeConfig): void {
     // Validate testTimeout
     if (claude.testTimeout !== undefined) {
-      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 300000 || claude.testTimeout > 900000) {
-        console.warn('Warning: Claude testTimeout must be a number between 300000ms (5 min) and 900000ms (15 min)');
-        claude.testTimeout = 600000; // Default to 10 minutes
+      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 600000 || claude.testTimeout > 1800000) {
+        console.warn('Warning: Claude testTimeout must be a number between 600000ms (10 min) and 1800000ms (30 min)');
+        claude.testTimeout = 900000; // Default to 15 minutes
       }
     }
     
@@ -324,7 +327,7 @@ export class ClaudeConfigManager {
   }
 
   getTestTimeout(): number {
-    return this.config.testTimeout || 600000;
+    return this.config.testTimeout || 900000;
   }
 
   /**
@@ -406,8 +409,11 @@ export class ClaudeConfigManager {
     return {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 600000,
+      testTimeout: 900000,
       prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.',
+      // Enable verbose output by default to show Claude's real-time progress
+      verbose: true,
+      outputFormat: 'stream-json',
       // Retry configuration defaults
       maxRetries: 0,  // Default to 0 for backwards compatibility
       retryDelay: 1000,
