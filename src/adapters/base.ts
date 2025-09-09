@@ -43,6 +43,7 @@ export interface LanguageAdapter {
   getFailurePatterns(framework: string): TestPattern[];
   parseTestOutput(output: string, framework: string): ParsedTestOutput;
   getDefaultTimeout(): number;
+  getTestFilePatterns?(framework: string): string[];
 }
 
 export abstract class BaseAdapter implements LanguageAdapter {

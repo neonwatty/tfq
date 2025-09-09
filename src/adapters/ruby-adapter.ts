@@ -261,4 +261,30 @@ export class RubyAdapter extends BaseAdapter {
     
     return summary;
   }
+
+  getTestFilePatterns(framework: string): string[] {
+    switch (framework.toLowerCase()) {
+      case 'minitest':
+        return [
+          '**/*_test.rb',
+          '**/test/**/*_test.rb',
+          '**/test_*.rb'
+        ];
+      case 'rspec':
+        return [
+          '**/*_spec.rb',
+          '**/spec/**/*_spec.rb',
+          '**/spec_*.rb'
+        ];
+      default:
+        // Return both Minitest and RSpec patterns for maximum coverage
+        return [
+          '**/*_test.rb',
+          '**/test/**/*_test.rb',
+          '**/test_*.rb',
+          '**/*_spec.rb',
+          '**/spec/**/*_spec.rb'
+        ];
+    }
+  }
 }

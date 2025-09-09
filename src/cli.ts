@@ -677,6 +677,51 @@ program
   });
 
 program
+  .command('scan-tests')
+  .description('Scan and list all test files in the project')
+  .option('-l, --language <language>', 'Specify the language')
+  .option('-v, --verbose', 'Show detailed output including file paths')
+  .option('--json', 'Output in JSON format')
+  .action(async (options) => {
+    try {
+      const { testScanner } = await import('./core/test-scanner.js');
+      
+      const scanResult = await testScanner.scanForTests(
+        process.cwd(),
+        options.language as TestLanguage | undefined
+      );
+      
+      if (useJsonOutput(options)) {
+        console.log(JSON.stringify({
+          success: true,
+          language: scanResult.language,
+          framework: scanResult.framework,
+          count: scanResult.count,
+          patterns: scanResult.patterns,
+          testFiles: options.verbose ? scanResult.testFiles : undefined
+        }));
+      } else {
+        if (scanResult.count === 0) {
+          console.log(chalk.yellow('⚠️  No test files found'));
+        } else {
+          console.log(chalk.green(`✓ Found ${scanResult.count} test file(s)`));
+        }
+        console.log();
+        console.log(testScanner.formatScanResult(scanResult, options.verbose));
+      }
+      
+      process.exit(scanResult.count === 0 ? 1 : 0);
+    } catch (error: any) {
+      if (useJsonOutput(options)) {
+        console.log(JSON.stringify({ success: false, error: error.message }));
+      } else {
+        console.error(chalk.red('Error:'), error.message);
+      }
+      process.exit(1);
+    }
+  });
+
+program
   .command('check-compatibility')
   .description('Check for unsupported test frameworks in the project')
   .option('--json', 'Output in JSON format')
@@ -961,16 +1006,24 @@ program
   .description('Fix the next test in the queue using Claude')
   .option('--claude-path <path>', 'Path to Claude executable')
   .option('--test-timeout <ms>', 'Timeout per test in milliseconds')
+  .option('--verbose', 'Enable verbose output with stream-json format')
   .option('--json', 'Output in JSON format')
   .action(async (options) => {
     try {
       const { getClaudeService } = await import('./services/claude/index.js');
+      const { testScanner } = await import('./core/test-scanner.js');
       
       // Get the Claude service with any overrides
       const claudeService = getClaudeService(
         program.opts().config,
         options.claudePath
       );
+      
+      // Update Claude config with verbose option if provided
+      if (options.verbose) {
+        // Directly update the Claude service's config for verbose mode
+        claudeService.getClaudeConfigManager().setVerboseMode();
+      }
       
       // Validate test timeout if provided
       if (options.testTimeout) {
@@ -983,6 +1036,31 @@ program
             console.error(chalk.red('Error:'), errorMsg);
           }
           process.exit(1);
+        }
+      }
+      
+      // Pre-flight check: If queue is empty, check if test files exist
+      if (queue.size() === 0) {
+        try {
+          const scanResult = await testScanner.scanForTests();
+          
+          if (scanResult.count === 0) {
+            if (useJsonOutput(options)) {
+              console.log(JSON.stringify({
+                success: false,
+                error: 'No test files found in project',
+                language: scanResult.language,
+                framework: scanResult.framework
+              }));
+            } else {
+              console.log(chalk.red('Error:'), 'No test files found in the project');
+              console.log(chalk.yellow(`Language: ${scanResult.language}, Framework: ${scanResult.framework}`));
+              console.log(chalk.gray('Please ensure your test files follow the naming conventions.'));
+            }
+            process.exit(1);
+          }
+        } catch (scanError) {
+          // If scan fails, continue anyway
         }
       }
       
@@ -1057,11 +1135,13 @@ program
   .option('--claude-path <path>', 'Path to Claude executable')
   .option('--max-iterations <number>', 'Maximum number of tests to fix', '20')
   .option('--test-timeout <ms>', 'Timeout per test in milliseconds')
+  .option('--verbose', 'Enable verbose output with stream-json format')
   .option('--json', 'Output in JSON format')
   .action(async (options) => {
     try {
       const { getClaudeService } = await import('./services/claude/index.js');
       const { TestRunner } = await import('./core/test-runner.js');
+      const { testScanner } = await import('./core/test-scanner.js');
       
       // Parse max iterations
       const maxIterations = parseInt(options.maxIterations, 10);
@@ -1080,6 +1160,12 @@ program
         program.opts().config,
         options.claudePath
       );
+      
+      // Update Claude config with verbose option if provided
+      if (options.verbose) {
+        // Directly update the Claude service's config for verbose mode
+        claudeService.getClaudeConfigManager().setVerboseMode();
+      }
       
       // Validate test timeout if provided
       if (options.testTimeout) {
@@ -1117,7 +1203,66 @@ program
         // If queue is empty, run tests to populate it
         if (initialQueueSize === 0) {
           if (!useJsonOutput(options)) {
-            console.log(chalk.blue.bold('🔄 Queue is empty. Running tests to discover failures...'));
+            console.log(chalk.blue.bold('🔄 Queue is empty. Checking for test files...'));
+          }
+          
+          // Pre-flight check: Count test files before running tests
+          try {
+            const scanResult = await testScanner.scanForTests();
+            
+            if (scanResult.count === 0) {
+              if (!useJsonOutput(options)) {
+                console.log();
+                console.log(chalk.red.bold('❌ No Test Files Found'));
+                console.log(chalk.dim('─'.repeat(50)));
+                console.log(chalk.yellow('Language:'), chalk.cyan(scanResult.language));
+                console.log(chalk.yellow('Framework:'), chalk.cyan(scanResult.framework));
+                console.log();
+                console.log(chalk.yellow('💡 Searched for patterns:'));
+                scanResult.patterns.slice(0, 5).forEach(pattern => {
+                  console.log(chalk.gray(`  • ${pattern}`));
+                });
+                if (scanResult.patterns.length > 5) {
+                  console.log(chalk.gray(`  • ... and ${scanResult.patterns.length - 5} more patterns`));
+                }
+                console.log();
+                console.log(chalk.yellow('📁 Common test file locations:'));
+                if (scanResult.language === 'javascript') {
+                  console.log(chalk.gray('  • test/*.test.js or tests/*.spec.js'));
+                  console.log(chalk.gray('  • __tests__/*.js'));
+                  console.log(chalk.gray('  • *.test.ts or *.spec.ts'));
+                } else if (scanResult.language === 'python') {
+                  console.log(chalk.gray('  • test_*.py or *_test.py'));
+                  console.log(chalk.gray('  • tests/*.py'));
+                } else if (scanResult.language === 'ruby') {
+                  console.log(chalk.gray('  • test/*_test.rb'));
+                  console.log(chalk.gray('  • spec/*_spec.rb'));
+                }
+                console.log();
+                console.log(chalk.dim('─'.repeat(50)));
+                console.log(chalk.yellow('ℹ️  Please ensure your test files follow the naming conventions'));
+                console.log(chalk.yellow('    for your language and framework.'));
+              } else {
+                console.log(JSON.stringify({
+                  success: true,
+                  message: 'No test files found',
+                  language: scanResult.language,
+                  framework: scanResult.framework,
+                  patterns: scanResult.patterns
+                }));
+              }
+              process.exit(0);
+            }
+            
+            if (!useJsonOutput(options)) {
+              console.log(chalk.green(`✓ Found ${scanResult.count} test file(s)`));
+              console.log(chalk.blue.bold('🔄 Running tests to discover failures...'));
+            }
+          } catch (scanError: any) {
+            // If scan fails, continue with test running anyway
+            if (!useJsonOutput(options)) {
+              console.log(chalk.yellow('⚠️  Could not scan for test files, proceeding with test run...'));
+            }
           }
           
           try {
@@ -1143,12 +1288,12 @@ program
               }
               
               if (useJsonOutput(options)) {
-                console.log(JSON.stringify({ success: false, error: 'All tests already passing' }));
+                console.log(JSON.stringify({ success: true, message: 'All tests already passing' }));
               } else {
                 console.log();
                 console.log(chalk.yellow('⚠️  All tests are already passing!'));
               }
-              process.exit(1);
+              process.exit(0);
             } else {
               // Test command failed with no parseable test failures
               if (!useJsonOutput(options)) {
@@ -1214,12 +1359,12 @@ program
           }
           
           if (useJsonOutput(options)) {
-            console.log(JSON.stringify({ success: false, error: 'No failed tests found' }));
+            console.log(JSON.stringify({ success: true, message: 'No failed tests found' }));
           } else {
             console.log();
             console.log(chalk.yellow('⚠️  No tests need fixing!'));
           }
-          process.exit(1);
+          process.exit(0);
         }
         
         if (!useJsonOutput(options)) {

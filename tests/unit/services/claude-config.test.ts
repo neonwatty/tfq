@@ -346,7 +346,7 @@ describe('Claude Service Configuration Tests', () => {
       expect(jsonArgs).toContain('--output-format');
       expect(jsonArgs).toContain('json');
       
-      // Test 3: verbose with stream-json format should suppress --verbose flag  
+      // Test 3: verbose with stream-json format should include --verbose flag for prettified output  
       const streamJsonConfig = {
         enabled: true,
         verbose: true,
@@ -354,7 +354,8 @@ describe('Claude Service Configuration Tests', () => {
       };
       const streamJsonManager = new ClaudeConfigManager(streamJsonConfig);
       const streamJsonArgs = streamJsonManager.buildCliArguments();
-      expect(streamJsonArgs).not.toContain('--verbose');
+      // Now verbose IS included with stream-json for prettified output
+      expect(streamJsonArgs).toContain('--verbose');
       expect(streamJsonArgs).toContain('--output-format');
       expect(streamJsonArgs).toContain('stream-json');
     });
@@ -375,9 +376,9 @@ describe('Claude Service Configuration Tests', () => {
           outputFormat: 'json' as const
         });
 
-        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(true);
+        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json"'))).toBe(true);
         
-        // Clear warnings and test stream-json
+        // Clear warnings and test stream-json - verbose is NOW allowed with stream-json
         warnings.length = 0;
         
         new ClaudeConfigManager({
@@ -386,7 +387,8 @@ describe('Claude Service Configuration Tests', () => {
           outputFormat: 'stream-json' as const
         });
 
-        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(true);
+        // No warning should be shown for stream-json with verbose (it's allowed for prettified output)
+        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(false);
       } finally {
         console.warn = originalWarn;
       }

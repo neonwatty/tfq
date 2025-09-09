@@ -5,22 +5,29 @@ import { ConfigManager } from '../../core/config.js';
 import { TestFailureQueue } from '../../core/queue.js';
 import { TestRunner } from '../../core/test-runner.js';
 import { withRetry, RetryConfig, formatRetryStats } from './retry-utils.js';
+import { formatToolInput } from '../../cli/utils/json-formatter.js';
 
 export class ClaudeService {
   private config: ClaudeConfig;
   private claudePath: string | null = null;
   private claudeConfigManager: ClaudeConfigManager;
+  private configManager: ConfigManager;
 
   constructor(configPath?: string, overrideClaudePath?: string) {
     // Get base config from ConfigManager
-    const configManager = ConfigManager.getInstance(configPath);
-    const baseConfig = configManager.getConfig();
+    this.configManager = ConfigManager.getInstance(configPath);
+    const baseConfig = this.configManager.getConfig();
     
     // Initialize Claude config manager with config from base
     this.claudeConfigManager = new ClaudeConfigManager(baseConfig.claude);
     this.config = this.claudeConfigManager.getClaudeConfig();
     
     this.claudePath = this.claudeConfigManager.getClaudePath(overrideClaudePath);
+  }
+
+  // Getter for accessing the config manager (for runtime config updates)
+  getClaudeConfigManager(): ClaudeConfigManager {
+    return this.claudeConfigManager;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -176,33 +183,55 @@ export class ClaudeService {
 
   private async executeClaudeProcess(prompt: string, timeout: number): Promise<{ success: boolean; error?: string; outputLength: number }> {
     try {
-      // Use streaming approach to show real-time output
-      // Pass prompt via stdin to avoid command line length/escaping issues
+      // Build CLI arguments
       const cliArgs = this.claudeConfigManager.buildCliArguments();
-      const childProcess = execa(this.claudePath!, cliArgs, {
+      
+      // Debug: Log the arguments being passed
+      if (this.claudeConfigManager.isVerbose()) {
+        console.log('🔍 Claude CLI args:', cliArgs.join(' '));
+      }
+      
+      // Configure execution options - always use streaming for real-time output
+      const execOptions: any = {
         timeout,
         env: process.env,
-        buffer: false, // Don't buffer output
+        buffer: false, // Don't buffer output - always stream for real-time feedback
         input: prompt // Pass prompt via stdin instead of command line argument
-      });
+      };
+      
+      // Check if we should use enhanced JSON formatting
+      // Only use verbose output if explicitly enabled (not just because stream-json is set)
+      const isVerbose = this.claudeConfigManager.isVerbose();
+      const shouldPrettifyJson = isVerbose && this.claudeConfigManager.isStreaming();
+      
+      const childProcess = execa(this.claudePath!, cliArgs, execOptions);
 
       let outputBuffer = '';
       let errorBuffer = '';
       let allOutput = '';
 
-      // Stream stdout (contains the text output with verbose info)
+      // Always stream stdout for real-time feedback
       childProcess.stdout?.on('data', (chunk: Buffer) => {
         const data = chunk.toString();
         outputBuffer += data;
         allOutput += data;
         
-        // Process complete lines for real-time display
-        const lines = outputBuffer.split('\n');
-        outputBuffer = lines.pop() || ''; // Keep incomplete line in buffer
-        
-        for (const line of lines) {
-          if (line.trim()) {
-            console.log('📤 Claude:', line);
+        // Only prettify JSON when verbose is explicitly enabled with stream-json format
+        if (shouldPrettifyJson) {
+          // Process accumulated buffer for complete JSON objects
+          this.displayVerboseOutput(outputBuffer);
+          // Clear successfully processed content from buffer
+          const lines = outputBuffer.split('\n');
+          outputBuffer = lines[lines.length - 1] || ''; // Keep last incomplete line
+        } else {
+          // Original text-based streaming
+          const lines = outputBuffer.split('\n');
+          outputBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              console.log('📤 Claude:', line);
+            }
           }
         }
       });
@@ -220,7 +249,11 @@ export class ClaudeService {
       
       // Process any remaining buffered output
       if (outputBuffer.trim()) {
-        console.log('📤 Claude final output:', outputBuffer.trim());
+        if (shouldPrettifyJson) {
+          this.displayVerboseOutput(outputBuffer);
+        } else {
+          console.log('📤 Claude final output:', outputBuffer.trim());
+        }
       }
       
       console.log(`📄 Total output length: ${allOutput.length} characters`);
@@ -425,6 +458,81 @@ export class ClaudeService {
       requeued,
       maxRetriesExceeded
     };
+  }
+
+  /**
+   * Display human-readable verbose output from Claude's JSON stream
+   */
+  private displayVerboseOutput(jsonText: string): void {
+    try {
+      // Split by newlines and process each potential JSON object
+      const lines = jsonText.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('{')) continue;
+
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          // Display different types of messages
+          if (parsed.type === 'assistant' && parsed.message) {
+            const content = parsed.message.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === 'text' && item.text) {
+                  console.log(`🤖 Claude: ${item.text}`);
+                } else if (item.type === 'tool_use') {
+                  const formattedInput = formatToolInput(item.name, item.input);
+                  console.log(`🔧 Using ${item.name}:${formattedInput}`);
+                }
+              }
+            }
+          } else if (parsed.type === 'user' && parsed.message) {
+            const content = parsed.message.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === 'tool_result' && !item.is_error) {
+                  // Truncate long tool results
+                  const resultText = typeof item.content === 'string' 
+                    ? item.content 
+                    : JSON.stringify(item.content);
+                  const truncated = resultText.length > 200 
+                    ? resultText.substring(0, 200) + '...'
+                    : resultText;
+                  console.log(`✅ Tool result: ${truncated}`);
+                } else if (item.type === 'tool_result' && item.is_error) {
+                  console.log(`❌ Tool error: ${item.content}`);
+                }
+              }
+            }
+          } else if (parsed.type === 'result') {
+            if (parsed.subtype === 'success') {
+              console.log(`🎉 Final result: Task completed successfully`);
+              if (parsed.duration_ms) {
+                console.log(`⏱️  Duration: ${parsed.duration_ms}ms`);
+              }
+              if (parsed.total_cost_usd) {
+                console.log(`💰 Cost: $${parsed.total_cost_usd}`);
+              }
+            } else if (parsed.is_error) {
+              console.log(`❌ Claude error: ${parsed.error || 'Unknown error'}`);
+            }
+          } else if (parsed.type === 'system' && parsed.subtype === 'init') {
+            console.log('🔧 Claude initialized');
+            if (parsed.model) {
+              console.log(`🎯 Model: ${parsed.model}`);
+            }
+          } else if (parsed.type === 'error') {
+            console.log(`🚨 Error: ${parsed.error || parsed.message || 'Unknown error'}`);
+          }
+        } catch (parseError) {
+          // Ignore individual JSON parse errors, just skip that line
+        }
+      }
+    } catch (error) {
+      // Fallback to raw output if JSON parsing completely fails
+      // But don't output the raw JSON since it's meant to be formatted
+    }
   }
 
   private logClaudeStreamingOutput(jsonData: any): void {

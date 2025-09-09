@@ -377,17 +377,17 @@ describe('Test ${i}', () => {
       // Run fix-all with empty queue and no test files
       const result = await runTfqCommand(['fix-all', '--max-iterations', '1'], testDir);
       
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       const allOutput = result.output + result.error;
       
-      // Should show test discovery failed message
-      expect(allOutput).toContain('Test Discovery Failed');
-      expect(allOutput).toContain('Exit Code:');
+      // Should show "No Test Files Found" from pre-flight check
+      expect(allOutput).toContain('No Test Files Found');
       
       // Should show helpful error information
-      expect(allOutput.includes('No test files found') || 
-             allOutput.includes('Error Output:') ||
-             allOutput.includes('Common causes:')).toBe(true);
+      expect(allOutput.includes('Language:') && 
+             allOutput.includes('Framework:')).toBe(true);
+      expect(allOutput.includes('Searched for patterns:') ||
+             allOutput.includes('Common test file locations:')).toBe(true);
       
       // Should NOT continue with fix iterations
       expect(allOutput).not.toContain('Iteration 1');
@@ -406,6 +406,9 @@ describe('Test ${i}', () => {
         path.join(testDir, 'package.json'),
         JSON.stringify(packageJson, null, 2)
       );
+      
+      // Create a test file so we pass the pre-flight check
+      fs.writeFileSync(path.join(testDir, 'example.test.js'), '// test');
 
       // Run fix-all
       const result = await runTfqCommand(['fix-all', '--max-iterations', '1'], testDir);
@@ -435,18 +438,19 @@ describe('Test ${i}', () => {
       // Run fix-all with JSON output
       const result = await runTfqCommand(['fix-all', '--max-iterations', '1', '--json'], testDir);
       
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       
       // Should output valid JSON with error details
       try {
         const jsonOutput = JSON.parse(result.output);
-        expect(jsonOutput.success).toBe(false);
-        expect(jsonOutput.error).toContain('Test discovery failed');
-        expect(jsonOutput.exitCode).toBeDefined();
-        expect(jsonOutput.command).toBeDefined();
+        expect(jsonOutput.success).toBe(true);
+        expect(jsonOutput.message).toContain('No test files found');
+        expect(jsonOutput.language).toBeDefined();
+        expect(jsonOutput.framework).toBeDefined();
+        expect(jsonOutput.patterns).toBeDefined();
       } catch (e) {
         // If not valid JSON, should at least contain error keywords
-        expect(result.output).toContain('Test discovery failed');
+        expect(result.output).toContain('No test files found');
       }
     });
   });

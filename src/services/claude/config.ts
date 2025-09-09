@@ -201,8 +201,9 @@ export class ClaudeConfigManager {
     }
 
     // Warn about verbose/output-format dependency (matches tfq CLI behavior)
-    if (claude.verbose && (claude.outputFormat === 'json' || claude.outputFormat === 'stream-json')) {
-      console.warn('Warning: verbose is disabled when outputFormat is "json" or "stream-json" - verbose output conflicts with structured JSON output');
+    // Note: verbose is now allowed with stream-json for prettified output
+    if (claude.verbose && claude.outputFormat === 'json') {
+      console.warn('Warning: verbose is disabled when outputFormat is "json" - verbose output conflicts with structured JSON output');
     }
   }
 
@@ -285,6 +286,18 @@ export class ClaudeConfigManager {
     return { ...this.config };
   }
 
+  /**
+   * Update runtime configuration for verbose mode
+   */
+  setVerboseMode(outputFormat?: 'text' | 'json' | 'stream-json'): void {
+    this.config.verbose = true;
+    if (outputFormat) {
+      this.config.outputFormat = outputFormat;
+    } else if (!this.config.outputFormat) {
+      this.config.outputFormat = 'stream-json';
+    }
+  }
+
   getClaudePath(overridePath?: string): string | null {
     // Priority: override > env var > config > auto-detect
     if (overridePath) {
@@ -314,6 +327,25 @@ export class ClaudeConfigManager {
     return this.config.testTimeout || 420000;
   }
 
+  /**
+   * Check if streaming mode is enabled (when outputFormat is stream-json)
+   */
+  isStreaming(): boolean {
+    return this.config.outputFormat === 'stream-json';
+  }
+
+  /**
+   * Check if verbose mode is enabled and compatible with output format
+   */
+  isVerbose(): boolean {
+    // Verbose is disabled when using JSON or stream-json output formats
+    // to avoid mixing structured and unstructured output
+    if (this.config.outputFormat === 'json' || this.config.outputFormat === 'stream-json') {
+      return this.config.verbose === true && this.config.outputFormat === 'stream-json';
+    }
+    return this.config.verbose === true;
+  }
+
   buildCliArguments(): string[] {
     const args = ['-p']; // Always print mode for tfq usage
     
@@ -336,7 +368,8 @@ export class ClaudeConfigManager {
       args.push('--input-format', this.config.inputFormat);
     }
     // Only add verbose flag if output format is not JSON (matches tfq CLI behavior)
-    if (this.config.verbose && this.config.outputFormat !== 'json' && this.config.outputFormat !== 'stream-json') {
+    // But allow verbose with stream-json for prettified output
+    if (this.config.verbose && this.config.outputFormat !== 'json') {
       args.push('--verbose');
     }
     if (this.config.maxTurns) {
