@@ -23,7 +23,7 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "test": "vitest run tests/unit tests/integration tests/examples",
-    "test:ci": "vitest run tests/unit tests/integration",
+    "test:ci": "vitest run tests/unit",
     "test:all": "vitest run",
     "test:all+e2e": "npm run test:all && npm run test:e2e",
     "test:core": "vitest run tests/unit tests/integration tests/examples",
