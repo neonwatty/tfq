@@ -147,6 +147,7 @@ export class InitService {
             // Enable verbose output by default to show Claude's real-time progress
             verbose: true,
             outputFormat: "stream-json",
+            model: "opusplan",
             // Retry configuration for headless mode resilience
             maxRetries: 3,
             retryDelay: 1000,

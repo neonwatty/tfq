@@ -414,6 +414,7 @@ export class ClaudeConfigManager {
       // Enable verbose output by default to show Claude's real-time progress
       verbose: true,
       outputFormat: 'stream-json',
+      model: 'opusplan',
       // Retry configuration defaults
       maxRetries: 0,  // Default to 0 for backwards compatibility
       retryDelay: 1000,
