@@ -14,7 +14,9 @@ describe('fix-all Command Integration (Refactored)', () => {
   });
 
   afterEach(async () => {
-    await cleanup();
+    if (cleanup && typeof cleanup === 'function') {
+      await cleanup();
+    }
   });
 
   describe('Basic Functionality', () => {
