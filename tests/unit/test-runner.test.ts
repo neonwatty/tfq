@@ -18,7 +18,7 @@ describe('TestRunner', () => {
       const runner = new TestRunner();
       expect(runner['language']).toBe('javascript');
       expect(runner['framework']).toBe('vitest');
-      expect(runner['command']).toBe('npm test');
+      expect(runner['command']).toBe('npx vitest run');
     });
 
     it('should use provided options', () => {
@@ -70,7 +70,7 @@ describe('TestRunner', () => {
       expect(result.totalFailures).toBe(0);
       expect(result.language).toBe('javascript');
       expect(result.framework).toBe('vitest');
-      expect(result.command).toBe('npm test');
+      expect(result.command).toBe('npx vitest run');
       expect(result.stdout).toBe('All tests passed\n');
       expect(result.stderr).toBe('');
       expect(result.error).toBeNull();
@@ -426,8 +426,8 @@ describe('TestRunner', () => {
         testPath: '/path/to/specific/test.js'
       });
       
-      // The command should include the testPath
-      expect(runner['command']).toBe('npx jest /path/to/specific/test.js');
+      // The command should include the testPath with no-watch flag
+      expect(runner['command']).toBe('npx jest --watchAll=false /path/to/specific/test.js');
     });
 
     it('should use default command when no testPath provided', () => {
@@ -436,8 +436,8 @@ describe('TestRunner', () => {
         framework: 'jest'
       });
       
-      // Should use default npm test command
-      expect(runner['command']).toBe('npm test');
+      // Should use default jest command without watch
+      expect(runner['command']).toBe('npx jest --watchAll=false');
     });
 
     it('should handle testPath for different frameworks', () => {
@@ -480,7 +480,7 @@ describe('TestRunner', () => {
       expect(result.exitCode).toBe(0);
       expect(result.failingTests).toEqual([]);
       expect(mockExecSync).toHaveBeenCalledWith(
-        'npx jest /path/to/specific/test.js',
+        'npx jest --watchAll=false /path/to/specific/test.js',
         { encoding: 'utf8', stdio: 'pipe' }
       );
     });

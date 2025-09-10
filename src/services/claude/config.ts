@@ -11,8 +11,16 @@ export class ClaudeConfigManager {
     const defaults: ClaudeConfig = {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 420000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.'
+      testTimeout: 900000,
+      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.',
+      // Enable verbose output by default to show Claude's real-time progress
+      verbose: true,
+      outputFormat: 'stream-json',
+      // Retry configuration defaults
+      maxRetries: 0,  // Default to 0 for backwards compatibility
+      retryDelay: 1000,
+      retryBackoffMultiplier: 2,
+      maxRetryDelay: 30000
     };
     
     // Deep merge the provided config with defaults
@@ -38,9 +46,9 @@ export class ClaudeConfigManager {
   private validateClaudeConfig(claude: ClaudeConfig): void {
     // Validate testTimeout
     if (claude.testTimeout !== undefined) {
-      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 60000 || claude.testTimeout > 600000) {
-        console.warn('Warning: Claude testTimeout must be a number between 60000ms (1 min) and 600000ms (10 min)');
-        claude.testTimeout = 420000; // Default to 7 minutes
+      if (typeof claude.testTimeout !== 'number' || claude.testTimeout < 600000 || claude.testTimeout > 1800000) {
+        console.warn('Warning: Claude testTimeout must be a number between 600000ms (10 min) and 1800000ms (30 min)');
+        claude.testTimeout = 900000; // Default to 15 minutes
       }
     }
     
@@ -49,6 +57,35 @@ export class ClaudeConfigManager {
       if (typeof claude.maxIterations !== 'number' || claude.maxIterations < 1) {
         console.warn('Warning: Claude maxIterations must be a positive number');
         claude.maxIterations = 20; // Default
+      }
+    }
+    
+    // Validate retry configuration
+    if (claude.maxRetries !== undefined) {
+      if (typeof claude.maxRetries !== 'number' || claude.maxRetries < 0 || claude.maxRetries > 10) {
+        console.warn('Warning: Claude maxRetries must be a number between 0 and 10');
+        claude.maxRetries = 0; // Default to no retries
+      }
+    }
+    
+    if (claude.retryDelay !== undefined) {
+      if (typeof claude.retryDelay !== 'number' || claude.retryDelay < 0) {
+        console.warn('Warning: Claude retryDelay must be a positive number');
+        claude.retryDelay = 1000; // Default to 1 second
+      }
+    }
+    
+    if (claude.retryBackoffMultiplier !== undefined) {
+      if (typeof claude.retryBackoffMultiplier !== 'number' || claude.retryBackoffMultiplier < 1) {
+        console.warn('Warning: Claude retryBackoffMultiplier must be a number >= 1');
+        claude.retryBackoffMultiplier = 2; // Default
+      }
+    }
+    
+    if (claude.maxRetryDelay !== undefined) {
+      if (typeof claude.maxRetryDelay !== 'number' || claude.maxRetryDelay < (claude.retryDelay || 1000)) {
+        console.warn('Warning: Claude maxRetryDelay must be >= retryDelay');
+        claude.maxRetryDelay = 30000; // Default to 30 seconds
       }
     }
     
@@ -167,8 +204,9 @@ export class ClaudeConfigManager {
     }
 
     // Warn about verbose/output-format dependency (matches tfq CLI behavior)
-    if (claude.verbose && (claude.outputFormat === 'json' || claude.outputFormat === 'stream-json')) {
-      console.warn('Warning: verbose is disabled when outputFormat is "json" or "stream-json" - verbose output conflicts with structured JSON output');
+    // Note: verbose is now allowed with stream-json for prettified output
+    if (claude.verbose && claude.outputFormat === 'json') {
+      console.warn('Warning: verbose is disabled when outputFormat is "json" - verbose output conflicts with structured JSON output');
     }
   }
 
@@ -251,6 +289,18 @@ export class ClaudeConfigManager {
     return { ...this.config };
   }
 
+  /**
+   * Update runtime configuration for verbose mode
+   */
+  setVerboseMode(outputFormat?: 'text' | 'json' | 'stream-json'): void {
+    this.config.verbose = true;
+    if (outputFormat) {
+      this.config.outputFormat = outputFormat;
+    } else if (!this.config.outputFormat) {
+      this.config.outputFormat = 'stream-json';
+    }
+  }
+
   getClaudePath(overridePath?: string): string | null {
     // Priority: override > env var > config > auto-detect
     if (overridePath) {
@@ -277,7 +327,26 @@ export class ClaudeConfigManager {
   }
 
   getTestTimeout(): number {
-    return this.config.testTimeout || 420000;
+    return this.config.testTimeout || 900000;
+  }
+
+  /**
+   * Check if streaming mode is enabled (when outputFormat is stream-json)
+   */
+  isStreaming(): boolean {
+    return this.config.outputFormat === 'stream-json';
+  }
+
+  /**
+   * Check if verbose mode is enabled and compatible with output format
+   */
+  isVerbose(): boolean {
+    // Verbose is disabled when using JSON or stream-json output formats
+    // to avoid mixing structured and unstructured output
+    if (this.config.outputFormat === 'json' || this.config.outputFormat === 'stream-json') {
+      return this.config.verbose === true && this.config.outputFormat === 'stream-json';
+    }
+    return this.config.verbose === true;
   }
 
   buildCliArguments(): string[] {
@@ -302,7 +371,8 @@ export class ClaudeConfigManager {
       args.push('--input-format', this.config.inputFormat);
     }
     // Only add verbose flag if output format is not JSON (matches tfq CLI behavior)
-    if (this.config.verbose && this.config.outputFormat !== 'json' && this.config.outputFormat !== 'stream-json') {
+    // But allow verbose with stream-json for prettified output
+    if (this.config.verbose && this.config.outputFormat !== 'json') {
       args.push('--verbose');
     }
     if (this.config.maxTurns) {
@@ -339,8 +409,17 @@ export class ClaudeConfigManager {
     return {
       enabled: false,
       maxIterations: 20,
-      testTimeout: 420000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.'
+      testTimeout: 900000,
+      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.',
+      // Enable verbose output by default to show Claude's real-time progress
+      verbose: true,
+      outputFormat: 'stream-json',
+      model: 'opusplan',
+      // Retry configuration defaults
+      maxRetries: 0,  // Default to 0 for backwards compatibility
+      retryDelay: 1000,
+      retryBackoffMultiplier: 2,
+      maxRetryDelay: 30000
     };
   }
 }

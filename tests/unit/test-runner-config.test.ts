@@ -118,7 +118,7 @@ describe('TestRunner with Config', () => {
       const runner = new TestRunner({ language: 'javascript', framework: 'jest' });
       const result = runner.run();
       
-      expect(result.command).toBe('npm test');
+      expect(result.command).toBe('npx jest --watchAll=false');
     });
 
     it('should override config command when command is specified in options', () => {

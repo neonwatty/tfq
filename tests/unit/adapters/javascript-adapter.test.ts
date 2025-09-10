@@ -74,12 +74,12 @@ describe('JavaScriptAdapter', () => {
   });
   
   describe('getTestCommand', () => {
-    it('should return npm test for jest without path', () => {
-      expect(adapter.getTestCommand('jest')).toBe('npm test');
+    it('should return jest with no-watch flag without path', () => {
+      expect(adapter.getTestCommand('jest')).toBe('npx jest --watchAll=false');
     });
     
-    it('should return npx jest with path for jest', () => {
-      expect(adapter.getTestCommand('jest', 'src/test.js')).toBe('npx jest src/test.js');
+    it('should return npx jest with no-watch flag and path for jest', () => {
+      expect(adapter.getTestCommand('jest', 'src/test.js')).toBe('npx jest --watchAll=false src/test.js');
     });
     
     it('should return npx vitest run with path for vitest', () => {

@@ -5,7 +5,7 @@ Runs tests to discover failures, then iteratively fixes each test one by one usi
 
 ## Usage
 ```bash
-tfq fix-all [options]
+tfq fix-all
 ```
 
 ## Options

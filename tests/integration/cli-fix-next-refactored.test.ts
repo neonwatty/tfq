@@ -9,14 +9,21 @@ describe('fix-next Command Integration (Refactored)', () => {
   let cleanup: () => Promise<void>;
   
   beforeEach(async () => {
-    const setup = await setupIntegrationTest('fix-next-refactored');
-    testDir = setup.testDir;
-    testFile = path.join(testDir, 'refactored-test.test.ts');
-    cleanup = setup.cleanup;
+    try {
+      const setup = await setupIntegrationTest('fix-next-refactored');
+      testDir = setup.testDir;
+      testFile = path.join(testDir, 'refactored-test.test.ts');
+      cleanup = setup.cleanup;
+    } catch (error) {
+      console.error('Failed to setup integration test:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    await cleanup();
+    if (cleanup && typeof cleanup === 'function') {
+      await cleanup();
+    }
   });
 
   describe('Basic Functionality', () => {
@@ -94,7 +101,7 @@ describe('JSON output test', () => {
       const result = await runTfqCommand(['fix-next', '--test-timeout', '500'], testDir);
       
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Test timeout must be a number between 60000ms (1 min) and 600000ms (10 min)');
+      expect(result.error).toContain('Test timeout must be a number between 600000ms (10 min) and 1800000ms (30 min)');
     });
 
     it('should accept valid test timeout parameter', async () => {
@@ -103,7 +110,7 @@ describe('JSON output test', () => {
       fs.writeFileSync(testFile, testContent);
       await runTfqCommand(['add', testFile], testDir);
 
-      const result = await runTfqCommand(['fix-next', '--test-timeout', '120000'], testDir);
+      const result = await runTfqCommand(['fix-next', '--test-timeout', '720000'], testDir);
       
       // Should fail because Claude is disabled, but timeout validation should pass
       expect(result.success).toBe(false);

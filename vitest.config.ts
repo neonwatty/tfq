@@ -23,7 +23,7 @@ export default defineConfig({
       ]
     },
     testTimeout: 660000,
-    hookTimeout: 30000,
+    hookTimeout: process.env.CI ? 120000 : 30000,
   },
   resolve: {
     extensions: ['.ts', '.js', '.json']

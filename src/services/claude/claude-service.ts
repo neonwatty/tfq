@@ -4,22 +4,30 @@ import { ClaudeConfigManager } from './config.js';
 import { ConfigManager } from '../../core/config.js';
 import { TestFailureQueue } from '../../core/queue.js';
 import { TestRunner } from '../../core/test-runner.js';
+import { withRetry, RetryConfig, formatRetryStats } from './retry-utils.js';
+import { formatToolInput } from '../../cli/utils/json-formatter.js';
 
 export class ClaudeService {
   private config: ClaudeConfig;
   private claudePath: string | null = null;
   private claudeConfigManager: ClaudeConfigManager;
+  private configManager: ConfigManager;
 
   constructor(configPath?: string, overrideClaudePath?: string) {
     // Get base config from ConfigManager
-    const configManager = ConfigManager.getInstance(configPath);
-    const baseConfig = configManager.getConfig();
+    this.configManager = ConfigManager.getInstance(configPath);
+    const baseConfig = this.configManager.getConfig();
     
     // Initialize Claude config manager with config from base
     this.claudeConfigManager = new ClaudeConfigManager(baseConfig.claude);
     this.config = this.claudeConfigManager.getClaudeConfig();
     
     this.claudePath = this.claudeConfigManager.getClaudePath(overrideClaudePath);
+  }
+
+  // Getter for accessing the config manager (for runtime config updates)
+  getClaudeConfigManager(): ClaudeConfigManager {
+    return this.claudeConfigManager;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -87,40 +95,143 @@ export class ClaudeService {
       prompt += `\n\nPrevious error context:\n${errorContext}`;
     }
     
+    // Set up retry configuration (declare here for access in catch block)
+    const retryConfig: RetryConfig = {
+      maxRetries: this.config.maxRetries ?? 0,  // Default to 0 for backwards compatibility
+      retryDelay: this.config.retryDelay ?? 1000,
+      retryBackoffMultiplier: this.config.retryBackoffMultiplier ?? 2,
+      maxRetryDelay: this.config.maxRetryDelay ?? 30000,
+      verbose: this.config.verbose
+    };
+    
     try {
-      const timeout = timeoutOverride || this.config.testTimeout || 420000; // Use override or default 7 minutes
+      const timeout = timeoutOverride || this.config.testTimeout || 900000; // Use override or default 15 minutes
       
       console.log('🔄 Starting Claude CLI with real-time streaming...');
       console.log('📝 Using prompt:', prompt.substring(0, 200) + '...');
       console.log('⏰ Timeout set to:', timeout, 'ms');
+      if (retryConfig.maxRetries > 0) {
+        console.log('🔁 Retry enabled: max', retryConfig.maxRetries, 'attempts');
+      }
       
-      // Use streaming approach to show real-time output
-      // Pass prompt via stdin to avoid command line length/escaping issues
+      // Wrap the Claude execution in retry logic
+      const retryResult = await withRetry(
+        async () => this.executeClaudeProcess(prompt, timeout),
+        retryConfig,
+        `Claude fix for ${filePath}`
+      );
+      
+      const { success, error, outputLength } = retryResult.result;
+      const retryStats = formatRetryStats(retryResult.retryAttempts);
+      
+      if (retryStats) {
+        console.log(`✅ Claude CLI process completed${retryStats}`);
+      } else {
+        console.log('✅ Claude CLI process completed');
+      }
+      
+      return {
+        success,
+        error,
+        duration: Date.now() - startTime,
+        retryAttempts: retryResult.retryAttempts
+      };
+    } catch (error: any) {
+      console.log('❌ Claude process failed:', error.message);
+      
+      const effectiveTimeout = timeoutOverride || this.config.testTimeout || 900000;
+      let errorMessage = 'Unknown error';
+      let retryAttempts = 0;
+      
+      if (error.originalError) {
+        // This is a RetryableError with the original error
+        const origError = error.originalError;
+        retryAttempts = retryConfig.maxRetries; // We exhausted all retries
+        
+        if (origError.timedOut) {
+          errorMessage = `Claude timed out after ${effectiveTimeout}ms${retryConfig.maxRetries > 0 ? ' (after retries)' : ''}`;
+        } else if (origError.exitCode !== undefined) {
+          errorMessage = `Claude exited with code ${origError.exitCode}${retryConfig.maxRetries > 0 ? ' (after retries)' : ''}`;
+          if (origError.stderr) {
+            errorMessage += `: ${origError.stderr}`;
+          }
+        } else {
+          errorMessage = error.message;
+        }
+      } else {
+        // Non-retryable error or direct error
+        if (error.timedOut) {
+          errorMessage = `Claude timed out after ${effectiveTimeout}ms`;
+        } else if (error.exitCode !== undefined) {
+          errorMessage = `Claude exited with code ${error.exitCode}`;
+          if (error.stderr) {
+            errorMessage += `: ${error.stderr}`;
+          }
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+        duration: Date.now() - startTime,
+        retryAttempts
+      };
+    }
+  }
+
+  private async executeClaudeProcess(prompt: string, timeout: number): Promise<{ success: boolean; error?: string; outputLength: number }> {
+    try {
+      // Build CLI arguments
       const cliArgs = this.claudeConfigManager.buildCliArguments();
-      const childProcess = execa(this.claudePath!, cliArgs, {
+      
+      // Debug: Log the arguments being passed
+      if (this.claudeConfigManager.isVerbose()) {
+        console.log('🔍 Claude CLI args:', cliArgs.join(' '));
+      }
+      
+      // Configure execution options - always use streaming for real-time output
+      const execOptions: any = {
         timeout,
         env: process.env,
-        buffer: false, // Don't buffer output
+        buffer: false, // Don't buffer output - always stream for real-time feedback
         input: prompt // Pass prompt via stdin instead of command line argument
-      });
+      };
+      
+      // Check if we should use enhanced JSON formatting
+      // Only use verbose output if explicitly enabled (not just because stream-json is set)
+      const isVerbose = this.claudeConfigManager.isVerbose();
+      const shouldPrettifyJson = isVerbose && this.claudeConfigManager.isStreaming();
+      
+      const childProcess = execa(this.claudePath!, cliArgs, execOptions);
 
       let outputBuffer = '';
       let errorBuffer = '';
       let allOutput = '';
 
-      // Stream stdout (contains the text output with verbose info)
+      // Always stream stdout for real-time feedback
       childProcess.stdout?.on('data', (chunk: Buffer) => {
         const data = chunk.toString();
         outputBuffer += data;
         allOutput += data;
         
-        // Process complete lines for real-time display
-        const lines = outputBuffer.split('\n');
-        outputBuffer = lines.pop() || ''; // Keep incomplete line in buffer
-        
-        for (const line of lines) {
-          if (line.trim()) {
-            console.log('📤 Claude:', line);
+        // Only prettify JSON when verbose is explicitly enabled with stream-json format
+        if (shouldPrettifyJson) {
+          // Process accumulated buffer for complete JSON objects
+          this.displayVerboseOutput(outputBuffer);
+          // Clear successfully processed content from buffer
+          const lines = outputBuffer.split('\n');
+          outputBuffer = lines[lines.length - 1] || ''; // Keep last incomplete line
+        } else {
+          // Original text-based streaming
+          const lines = outputBuffer.split('\n');
+          outputBuffer = lines.pop() || ''; // Keep incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              console.log('📤 Claude:', line);
+            }
           }
         }
       });
@@ -138,10 +249,13 @@ export class ClaudeService {
       
       // Process any remaining buffered output
       if (outputBuffer.trim()) {
-        console.log('📤 Claude final output:', outputBuffer.trim());
+        if (shouldPrettifyJson) {
+          this.displayVerboseOutput(outputBuffer);
+        } else {
+          console.log('📤 Claude final output:', outputBuffer.trim());
+        }
       }
       
-      console.log('✅ Claude CLI process completed');
       console.log(`📄 Total output length: ${allOutput.length} characters`);
       
       // Determine success/error based on Claude Code exit status
@@ -159,30 +273,14 @@ export class ClaudeService {
       return {
         success,
         error: errorMessage,
-        duration: Date.now() - startTime
+        outputLength: allOutput.length
       };
     } catch (error: any) {
-      console.log('❌ Claude process threw an error:', error.message);
-      console.log('🔍 Error details - timedOut:', error.timedOut, 'exitCode:', error.exitCode, 'duration:', error.durationMs);
+      console.log('❌ Claude process error:', error.message);
+      console.log('🔍 Error details - timedOut:', error.timedOut, 'exitCode:', error.exitCode, 'signal:', error.signal);
       
-      let errorMessage = 'Unknown error';
-      
-      if (error.timedOut) {
-        errorMessage = `Claude timed out after ${this.config.testTimeout}ms`;
-      } else if (error.exitCode !== undefined) {
-        errorMessage = `Claude exited with code ${error.exitCode}`;
-        if (error.stderr) {
-          errorMessage += `: ${error.stderr}`;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage,
-        duration: Date.now() - startTime
-      };
+      // Re-throw the error to be handled by retry logic
+      throw error;
     }
   }
 
@@ -203,7 +301,7 @@ export class ClaudeService {
   }
 
   getTestTimeout(): number {
-    return this.config.testTimeout || 420000;
+    return this.config.testTimeout || 900000;
   }
 
   async fixNextTest(queue: TestFailureQueue, options: {
@@ -250,7 +348,7 @@ export class ClaudeService {
     let timeoutOverride: number | undefined;
     if (options.testTimeout) {
       const timeout = parseInt(options.testTimeout.toString(), 10);
-      if (!isNaN(timeout) && timeout >= 60000 && timeout <= 600000) {
+      if (!isNaN(timeout) && timeout >= 600000 && timeout <= 1800000) {
         timeoutOverride = timeout;
       }
     }
@@ -360,6 +458,81 @@ export class ClaudeService {
       requeued,
       maxRetriesExceeded
     };
+  }
+
+  /**
+   * Display human-readable verbose output from Claude's JSON stream
+   */
+  private displayVerboseOutput(jsonText: string): void {
+    try {
+      // Split by newlines and process each potential JSON object
+      const lines = jsonText.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('{')) continue;
+
+        try {
+          const parsed = JSON.parse(trimmed);
+
+          // Display different types of messages
+          if (parsed.type === 'assistant' && parsed.message) {
+            const content = parsed.message.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === 'text' && item.text) {
+                  console.log(`🤖 Claude: ${item.text}`);
+                } else if (item.type === 'tool_use') {
+                  const formattedInput = formatToolInput(item.name, item.input);
+                  console.log(`🔧 Using ${item.name}:${formattedInput}`);
+                }
+              }
+            }
+          } else if (parsed.type === 'user' && parsed.message) {
+            const content = parsed.message.content;
+            if (Array.isArray(content)) {
+              for (const item of content) {
+                if (item.type === 'tool_result' && !item.is_error) {
+                  // Truncate long tool results
+                  const resultText = typeof item.content === 'string' 
+                    ? item.content 
+                    : JSON.stringify(item.content);
+                  const truncated = resultText.length > 200 
+                    ? resultText.substring(0, 200) + '...'
+                    : resultText;
+                  console.log(`✅ Tool result: ${truncated}`);
+                } else if (item.type === 'tool_result' && item.is_error) {
+                  console.log(`❌ Tool error: ${item.content}`);
+                }
+              }
+            }
+          } else if (parsed.type === 'result') {
+            if (parsed.subtype === 'success') {
+              console.log(`🎉 Final result: Task completed successfully`);
+              if (parsed.duration_ms) {
+                console.log(`⏱️  Duration: ${parsed.duration_ms}ms`);
+              }
+              if (parsed.total_cost_usd) {
+                console.log(`💰 Cost: $${parsed.total_cost_usd}`);
+              }
+            } else if (parsed.is_error) {
+              console.log(`❌ Claude error: ${parsed.error || 'Unknown error'}`);
+            }
+          } else if (parsed.type === 'system' && parsed.subtype === 'init') {
+            console.log('🔧 Claude initialized');
+            if (parsed.model) {
+              console.log(`🎯 Model: ${parsed.model}`);
+            }
+          } else if (parsed.type === 'error') {
+            console.log(`🚨 Error: ${parsed.error || parsed.message || 'Unknown error'}`);
+          }
+        } catch (parseError) {
+          // Ignore individual JSON parse errors, just skip that line
+        }
+      }
+    } catch (error) {
+      // Fallback to raw output if JSON parsing completely fails
+      // But don't output the raw JSON since it's meant to be formatted
+    }
   }
 
   private logClaudeStreamingOutput(jsonData: any): void {

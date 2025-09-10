@@ -264,57 +264,57 @@ describe('Claude Service Configuration Tests', () => {
         // Test minimum validation (too low)
         const tooLowConfig = {
           enabled: true,
-          testTimeout: 59999 // Just under 1 minute
+          testTimeout: 599999 // Just under 10 minutes
         };
 
         const tooLowManager = new ClaudeConfigManager(tooLowConfig);
-        expect(warnings.some(w => w.includes('testTimeout must be a number between 60000ms (1 min) and 600000ms (10 min)'))).toBe(true);
-        expect(tooLowManager.getTestTimeout()).toBe(420000); // Should use default
+        expect(warnings.some(w => w.includes('testTimeout must be a number between 600000ms (10 min) and 1800000ms (30 min)'))).toBe(true);
+        expect(tooLowManager.getTestTimeout()).toBe(900000); // Should use default
 
         warnings.length = 0; // Clear warnings
 
         // Test maximum validation (too high)
         const tooHighConfig = {
           enabled: true,
-          testTimeout: 600001 // Just over 10 minutes
+          testTimeout: 1800001 // Just over 30 minutes
         };
 
         const tooHighManager = new ClaudeConfigManager(tooHighConfig);
-        expect(warnings.some(w => w.includes('testTimeout must be a number between 60000ms (1 min) and 600000ms (10 min)'))).toBe(true);
-        expect(tooHighManager.getTestTimeout()).toBe(420000); // Should use default
+        expect(warnings.some(w => w.includes('testTimeout must be a number between 600000ms (10 min) and 1800000ms (30 min)'))).toBe(true);
+        expect(tooHighManager.getTestTimeout()).toBe(900000); // Should use default
 
         warnings.length = 0; // Clear warnings
 
         // Test valid range (should not warn)
         const validConfig = {
           enabled: true,
-          testTimeout: 300000 // 5 minutes - valid
+          testTimeout: 600000 // 10 minutes - valid
         };
 
         const validManager = new ClaudeConfigManager(validConfig);
         expect(warnings.length).toBe(0); // No warnings
-        expect(validManager.getTestTimeout()).toBe(300000); // Should use provided value
+        expect(validManager.getTestTimeout()).toBe(600000); // Should use provided value
 
         // Test edge cases (boundaries)
         warnings.length = 0;
         
         const minValidConfig = {
           enabled: true,
-          testTimeout: 60000 // Exactly 1 minute
+          testTimeout: 600000 // Exactly 10 minutes
         };
 
         const minValidManager = new ClaudeConfigManager(minValidConfig);
         expect(warnings.length).toBe(0); // No warnings
-        expect(minValidManager.getTestTimeout()).toBe(60000);
+        expect(minValidManager.getTestTimeout()).toBe(600000);
 
         const maxValidConfig = {
           enabled: true,
-          testTimeout: 600000 // Exactly 10 minutes
+          testTimeout: 1800000 // Exactly 30 minutes
         };
 
         const maxValidManager = new ClaudeConfigManager(maxValidConfig);
         expect(warnings.length).toBe(0); // No warnings
-        expect(maxValidManager.getTestTimeout()).toBe(600000);
+        expect(maxValidManager.getTestTimeout()).toBe(1800000);
 
       } finally {
         console.warn = originalWarn;
@@ -346,7 +346,7 @@ describe('Claude Service Configuration Tests', () => {
       expect(jsonArgs).toContain('--output-format');
       expect(jsonArgs).toContain('json');
       
-      // Test 3: verbose with stream-json format should suppress --verbose flag  
+      // Test 3: verbose with stream-json format should include --verbose flag for prettified output  
       const streamJsonConfig = {
         enabled: true,
         verbose: true,
@@ -354,7 +354,8 @@ describe('Claude Service Configuration Tests', () => {
       };
       const streamJsonManager = new ClaudeConfigManager(streamJsonConfig);
       const streamJsonArgs = streamJsonManager.buildCliArguments();
-      expect(streamJsonArgs).not.toContain('--verbose');
+      // Now verbose IS included with stream-json for prettified output
+      expect(streamJsonArgs).toContain('--verbose');
       expect(streamJsonArgs).toContain('--output-format');
       expect(streamJsonArgs).toContain('stream-json');
     });
@@ -375,9 +376,9 @@ describe('Claude Service Configuration Tests', () => {
           outputFormat: 'json' as const
         });
 
-        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(true);
+        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json"'))).toBe(true);
         
-        // Clear warnings and test stream-json
+        // Clear warnings and test stream-json - verbose is NOW allowed with stream-json
         warnings.length = 0;
         
         new ClaudeConfigManager({
@@ -386,7 +387,8 @@ describe('Claude Service Configuration Tests', () => {
           outputFormat: 'stream-json' as const
         });
 
-        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(true);
+        // No warning should be shown for stream-json with verbose (it's allowed for prettified output)
+        expect(warnings.some(w => w.includes('verbose is disabled when outputFormat is "json" or "stream-json"'))).toBe(false);
       } finally {
         console.warn = originalWarn;
       }

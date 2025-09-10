@@ -283,38 +283,6 @@ describe('TestDatabase Grouping Features', () => {
   });
 
   describe('database migration', () => {
-    it.skip('should add group columns to existing database', async () => {
-      // Create a database without group columns (simulate old version)
-      db.close();
-      fs.unlinkSync(testDbPath);
-      
-      // Create minimal database with old schema
-      const Database = (await import('better-sqlite3')).default;
-      const tempDb = new Database(testDbPath);
-      tempDb.exec(`
-        CREATE TABLE failed_tests (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          file_path TEXT UNIQUE NOT NULL,
-          priority INTEGER DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          failure_count INTEGER DEFAULT 1,
-          last_failure DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        INSERT INTO failed_tests (file_path) VALUES ('existing.js');
-      `);
-      tempDb.close();
-      
-      // Open with new TestDatabase (should migrate)
-      db = new TestDatabase({ path: testDbPath });
-      
-      // Verify columns were added
-      db.setTestGroup('existing.js', 1, 'parallel', 0);
-      const items = db.list();
-      const existing = items.find(item => item.filePath === 'existing.js');
-      
-      expect(existing?.groupId).toBe(1);
-      expect(existing?.groupType).toBe('parallel');
-    });
 
     it('should not fail if columns already exist', () => {
       // Close and reopen database (columns already exist)

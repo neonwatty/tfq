@@ -139,9 +139,9 @@ describe('Multi-Language Adapter Integration Tests', () => {
   describe('Command Generation', () => {
     it('should generate correct commands for each framework', () => {
       const commandMap = {
-        'javascript:jest': 'npm test',
+        'javascript:jest': 'npx jest --watchAll=false',
         'javascript:mocha': 'npm test',
-        'javascript:vitest': 'npm test',
+        'javascript:vitest': 'npx vitest run',
         'javascript:jasmine': 'npm test',
         'javascript:ava': 'npm test',
         'ruby:minitest': ['rails test', 'ruby -Ilib:test'], // Both Rails and non-Rails commands are valid

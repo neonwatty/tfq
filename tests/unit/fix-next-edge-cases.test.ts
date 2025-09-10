@@ -99,7 +99,7 @@ describe('Fix-Next Verification Edge Cases', () => {
       });
       
       // Should work with absolute paths regardless of location
-      expect(runner['command']).toBe('npx jest /random/path/some.test.js');
+      expect(runner['command']).toBe('npx jest --watchAll=false /random/path/some.test.js');
     });
   });
 

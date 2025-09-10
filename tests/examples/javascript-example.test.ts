@@ -49,9 +49,9 @@ describe('JavaScript Example (Jest)', () => {
     expect(result.framework).toBe('jest');
   });
 
-  it('should use npm test as the command', () => {
+  it('should use jest with no-watch flag as the command', () => {
     const result = runTfqCommand(projectPath, ['--language', 'javascript', '--framework', 'jest'], tempDbPath);
     
-    expect(result.command).toBe('npm test');
+    expect(result.command).toBe('npx jest --watchAll=false');
   });
 });

@@ -133,14 +133,14 @@ describe('Claude Service', () => {
       
       expect(service.isEnabled()).toBe(false);
       expect(service.getMaxIterations()).toBe(20);
-      expect(service.getTestTimeout()).toBe(420000);
+      expect(service.getTestTimeout()).toBe(900000);
     });
 
     it('should initialize with custom config', () => {
       const customConfig = {
         enabled: true,
         maxIterations: 15,
-        testTimeout: 300000,
+        testTimeout: 720000,
         claudePath: '/custom/claude/path'
       };
 
@@ -154,7 +154,7 @@ describe('Claude Service', () => {
       
       expect(service.isEnabled()).toBe(true);
       expect(service.getMaxIterations()).toBe(15);
-      expect(service.getTestTimeout()).toBe(300000);
+      expect(service.getTestTimeout()).toBe(720000);
       expect(service.getClaudePath()).toBe('/custom/claude/path');
     });
   });
@@ -239,13 +239,13 @@ describe('Claude Service', () => {
       vi.spyOn(ConfigManager, 'getInstance').mockReturnValue({
         getConfig: () => ({ claude: { 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         } }),
         getClaudeConfig: () => ({ 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         }),
@@ -260,8 +260,8 @@ describe('Claude Service', () => {
       expect(result.duration).toBeGreaterThan(0);
       
       // Updated expectation to match actual implementation
-      expect(mockExeca).toHaveBeenCalledWith('/valid/claude/path', ['-p'], {
-        timeout: 300000,
+      expect(mockExeca).toHaveBeenCalledWith('/valid/claude/path', ['-p', '--output-format', 'stream-json', '--verbose'], {
+        timeout: 720000,
         env: process.env,
         buffer: false,
         input: 'fix /path/to/test.js'
@@ -315,13 +315,13 @@ describe('Claude Service', () => {
       vi.spyOn(ConfigManager, 'getInstance').mockReturnValue({
         getConfig: () => ({ claude: { 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         } }),
         getClaudeConfig: () => ({ 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         }),
@@ -344,13 +344,13 @@ describe('Claude Service', () => {
       vi.spyOn(ConfigManager, 'getInstance').mockReturnValue({
         getConfig: () => ({ claude: { 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         } }),
         getClaudeConfig: () => ({ 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         }),
@@ -361,7 +361,7 @@ describe('Claude Service', () => {
       const result = await service.fixTest('/path/to/test.js');
       
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Claude timed out after 300000ms');
+      expect(result.error).toBe('Claude timed out after 720000ms');
     });
 
     it('should include error context in prompt when provided', async () => {
@@ -378,13 +378,13 @@ describe('Claude Service', () => {
       vi.spyOn(ConfigManager, 'getInstance').mockReturnValue({
         getConfig: () => ({ claude: { 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         } }),
         getClaudeConfig: () => ({ 
           enabled: true, 
-          testTimeout: 300000,
+          testTimeout: 720000,
           prompt: 'fix {testFilePath}',
           claudePath: '/valid/claude/path'
         }),
@@ -395,8 +395,8 @@ describe('Claude Service', () => {
       await service.fixTest('/path/to/test.js', 'Previous error: timeout');
       
       // Updated expectation to match actual implementation
-      expect(mockExeca).toHaveBeenCalledWith('/valid/claude/path', ['-p'], {
-        timeout: 300000,
+      expect(mockExeca).toHaveBeenCalledWith('/valid/claude/path', ['-p', '--output-format', 'stream-json', '--verbose'], {
+        timeout: 720000,
         env: process.env,
         buffer: false,
         input: expect.stringContaining('Previous error context:\nPrevious error: timeout')
@@ -465,7 +465,7 @@ describe('Claude Service', () => {
       const originalConfig = {
         enabled: true,
         maxIterations: 15,
-        testTimeout: 300000
+        testTimeout: 720000
       };
 
       vi.spyOn(ConfigManager, 'getInstance').mockReturnValue({

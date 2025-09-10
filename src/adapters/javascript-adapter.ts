@@ -56,11 +56,11 @@ export class JavaScriptAdapter extends BaseAdapter {
     
     switch (framework.toLowerCase()) {
       case 'jest':
-        return testPath ? `npx jest ${basePath}` : 'npm test';
+        return testPath ? `npx jest --watchAll=false ${basePath}` : 'npx jest --watchAll=false';
       case 'mocha':
         return testPath ? `npx mocha ${basePath}` : 'npm test';
       case 'vitest':
-        return testPath ? `npx vitest run ${basePath}` : 'npm test';
+        return testPath ? `npx vitest run ${basePath}` : 'npx vitest run';
       case 'jasmine':
         return testPath ? `npx jasmine ${basePath}` : 'npm test';
       case 'ava':
@@ -293,5 +293,60 @@ export class JavaScriptAdapter extends BaseAdapter {
     }
     
     return summary;
+  }
+
+  getTestFilePatterns(framework: string): string[] {
+    const basePatterns = [
+      '**/*.test.js',
+      '**/*.test.jsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.js',
+      '**/*.spec.jsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.test.mjs',
+      '**/*.spec.mjs',
+      '**/*.test.cjs',
+      '**/*.spec.cjs'
+    ];
+
+    // Note: We don't include broad patterns like **/tests/**/*.js because they
+    // would match non-test files like helpers. Test files should follow naming
+    // conventions with .test. or .spec. in the name.
+    const directoryPatterns: string[] = [];
+
+    switch (framework.toLowerCase()) {
+      case 'jest':
+        return [...basePatterns, ...directoryPatterns];
+      case 'vitest':
+        return [
+          ...basePatterns,
+          ...directoryPatterns,
+          '**/*.test.e2e.js',
+          '**/*.test.e2e.ts'
+        ];
+      case 'mocha':
+        return [
+          ...basePatterns,
+          ...directoryPatterns,
+          '**/spec/**/*.js',
+          '**/spec/**/*.ts'
+        ];
+      case 'jasmine':
+        return [
+          '**/*.spec.js',
+          '**/*.spec.ts',
+          '**/spec/**/*.js',
+          '**/spec/**/*.ts'
+        ];
+      case 'ava':
+        return [
+          ...basePatterns,
+          ...directoryPatterns
+        ];
+      default:
+        return [...basePatterns, ...directoryPatterns];
+    }
   }
 }

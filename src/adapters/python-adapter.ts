@@ -331,4 +331,36 @@ export class PythonAdapter extends BaseAdapter {
     
     return summary;
   }
+
+  getTestFilePatterns(framework: string): string[] {
+    switch (framework.toLowerCase()) {
+      case 'pytest':
+        return [
+          '**/test_*.py',
+          '**/*_test.py',
+          '**/tests/test_*.py',
+          '**/tests/*_test.py',
+          '**/tests/**/test_*.py',
+          '**/tests/**/*_test.py'
+        ];
+      case 'unittest':
+        return [
+          '**/test_*.py',
+          '**/*_test.py',
+          '**/tests/test_*.py',
+          '**/tests/*_test.py',
+          '**/tests/**/test_*.py',
+          '**/tests/**/*_test.py'
+        ];
+      default:
+        return [
+          '**/test_*.py',
+          '**/*_test.py',
+          '**/tests/test_*.py',
+          '**/tests/*_test.py',
+          '**/tests/**/test_*.py',
+          '**/tests/**/*_test.py'
+        ];
+    }
+  }
 }

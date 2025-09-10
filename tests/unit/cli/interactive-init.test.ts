@@ -139,7 +139,7 @@ describe('interactiveInit', () => {
         'y',                 // enable Claude
         '/custom/claude',    // claude path
         '5',                 // max iterations
-        '180000',            // timeout
+        '900000',            // timeout
         'y'                  // save configuration
       ];
       
@@ -153,8 +153,10 @@ describe('interactiveInit', () => {
       expect(result.claude).toEqual({
         enabled: true,
         maxIterations: 5,
-        testTimeout: 180000,
+        testTimeout: 900000,
         prompt: "Fix the syntax and logic errors in this test file and return only the corrected code",
+        verbose: true,
+        outputFormat: "stream-json",
         claudePath: '/custom/claude'
       });
     });
