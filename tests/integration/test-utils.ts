@@ -231,7 +231,8 @@ export async function setupIntegrationTest(testName: string): Promise<{
   fs.writeFileSync(path.join(testDir, '.tfqrc'), JSON.stringify(config, null, 2));
   
   // Small delay to ensure file system operations are complete
-  await new Promise(resolve => setTimeout(resolve, 50));
+  // Use shorter delay in CI to speed up tests
+  await new Promise(resolve => setTimeout(resolve, process.env.CI ? 25 : 50));
   
   return {
     testDir,

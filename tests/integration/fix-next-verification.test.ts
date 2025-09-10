@@ -9,14 +9,21 @@ describe('fix-next Verification Integration', () => {
   let cleanup: () => Promise<void>;
   
   beforeEach(async () => {
-    const setup = await setupIntegrationTest('fix-next-verification');
-    testDir = setup.testDir;
-    testFile = path.join(testDir, 'verification-test.test.ts');
-    cleanup = setup.cleanup;
+    try {
+      const setup = await setupIntegrationTest('fix-next-verification');
+      testDir = setup.testDir;
+      testFile = path.join(testDir, 'verification-test.test.ts');
+      cleanup = setup.cleanup;
+    } catch (error) {
+      console.error('Failed to setup integration test:', error);
+      throw error;
+    }
   });
 
   afterEach(async () => {
-    await cleanup();
+    if (cleanup && typeof cleanup === 'function') {
+      await cleanup();
+    }
   });
 
   it('should verify fix and succeed when test passes after Claude processing', async () => {
