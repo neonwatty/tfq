@@ -473,8 +473,8 @@ tfq fix-next
 # Fix all tests iteratively with AI  
 tfq fix-all --max-iterations 10
 
-# Fix with custom timeout (1-10 minutes allowed)
-tfq fix-next --test-timeout 600000
+# Fix with custom timeout (10-30 minutes allowed)
+tfq fix-next --test-timeout 900000
 ```
 
 ### Example Claude Code Slash Commands
@@ -497,7 +497,7 @@ TFQ supports all Claude Code CLI options through `.tfqrc` configuration. These o
     "enabled": true,
     "claudePath": "/path/to/claude",
     "maxIterations": 10,
-    "testTimeout": 300000,  // 1-10 minutes (60000-600000ms)
+    "testTimeout": 900000,  // 10-30 minutes (600000-1800000ms)
     
     // Security & Permissions
     "dangerouslySkipPermissions": true,     // Skip permission prompts (dev mode)
@@ -506,8 +506,8 @@ TFQ supports all Claude Code CLI options through `.tfqrc` configuration. These o
     "permissionMode": "plan",               // Permission handling mode
     
     // Output & Behavior  
-    "outputFormat": "text",                 // text|json|stream-json
-    "verbose": true,                        // Enable detailed logging
+    "outputFormat": "stream-json",          // text|json|stream-json (default: stream-json)
+    "verbose": true,                        // Enable detailed logging (default: true)
     "maxTurns": 5,                         // Limit conversation turns
     "model": "sonnet",                     // sonnet|opus|full-model-name
     
