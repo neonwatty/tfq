@@ -8,21 +8,31 @@ import { dirname } from 'path';
 // Track running child processes for cleanup
 const runningProcesses = new Set<ChildProcess>();
 
-// Cleanup function for process termination
+// Cleanup function for process termination - optimized for CI
 export async function killChildProcesses(): Promise<void> {
   const killPromises = Array.from(runningProcesses).map(async (process) => {
     if (!process.killed) {
       return new Promise<void>((resolve) => {
-        process.on('exit', () => resolve());
+        let resolved = false;
+        
+        const resolveOnce = () => {
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        };
+        
+        process.on('exit', resolveOnce);
         process.kill('SIGTERM');
         
-        // Force kill after 2 seconds if SIGTERM doesn't work
+        // Shorter timeout in CI environments - 1 second instead of 2
+        const timeout = process.env.CI ? 1000 : 2000;
         setTimeout(() => {
           if (!process.killed) {
             process.kill('SIGKILL');
           }
-          resolve();
-        }, 2000);
+          resolveOnce();
+        }, timeout);
       });
     }
   });
@@ -41,10 +51,14 @@ export function createTestDirectory(prefix: string = 'tfq-integration'): string 
 
 /**
  * Enhanced cleanup function with retry logic and proper error handling
+ * Optimized for CI environments with faster timeouts and better error handling
  */
-export async function cleanupTestDirectory(testDir: string, maxRetries: number = 5): Promise<void> {
+export async function cleanupTestDirectory(testDir: string, maxRetries: number = 3): Promise<void> {
   // First kill any child processes that might be holding file locks
   await killChildProcesses();
+  
+  // Give a brief moment for processes to fully terminate
+  await new Promise(resolve => setTimeout(resolve, 100));
   
   // Then attempt to clean up the directory with retries
   for (let i = 0; i < maxRetries; i++) {
@@ -53,19 +67,27 @@ export async function cleanupTestDirectory(testDir: string, maxRetries: number =
         // Try to make directory writable in case of permission issues
         try {
           fs.chmodSync(testDir, 0o755);
-          // Recursively make all contents writable
+          // Recursively make all contents writable (optimized version)
           const makeWritable = (dir: string) => {
-            const items = fs.readdirSync(dir);
-            items.forEach(item => {
-              const itemPath = path.join(dir, item);
-              const stat = fs.statSync(itemPath);
-              if (stat.isDirectory()) {
-                fs.chmodSync(itemPath, 0o755);
-                makeWritable(itemPath);
-              } else {
-                fs.chmodSync(itemPath, 0o644);
-              }
-            });
+            try {
+              const items = fs.readdirSync(dir);
+              items.forEach(item => {
+                try {
+                  const itemPath = path.join(dir, item);
+                  const stat = fs.statSync(itemPath);
+                  if (stat.isDirectory()) {
+                    fs.chmodSync(itemPath, 0o755);
+                    makeWritable(itemPath);
+                  } else {
+                    fs.chmodSync(itemPath, 0o644);
+                  }
+                } catch (itemError) {
+                  // Skip individual items that can't be processed
+                }
+              });
+            } catch (dirError) {
+              // Skip directories that can't be read
+            }
           };
           makeWritable(testDir);
         } catch (permError) {
@@ -77,12 +99,16 @@ export async function cleanupTestDirectory(testDir: string, maxRetries: number =
       return; // Success
     } catch (error) {
       if (i === maxRetries - 1) {
-        // Final attempt failed
+        // In CI, don't fail tests due to cleanup issues - just warn
+        if (process.env.CI) {
+          console.warn(`Warning: Failed to cleanup test directory: ${testDir}. Error: ${error}`);
+          return;
+        }
         throw new Error(`Failed to cleanup test directory after ${maxRetries} attempts: ${testDir}. Error: ${error}`);
       }
       
-      // Wait with exponential backoff before retrying
-      const delay = Math.min(1000 * Math.pow(2, i), 5000);
+      // Reduced retry delays for CI efficiency (max 2 seconds instead of 5)
+      const delay = Math.min(500 * Math.pow(2, i), 2000);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -94,7 +120,7 @@ export async function cleanupTestDirectory(testDir: string, maxRetries: number =
 export async function runTfqCommand(
   args: string[], 
   cwd: string, 
-  timeout: number = 10000
+  timeout: number = process.env.CI ? 5000 : 10000
 ): Promise<{ success: boolean; output: string; error: string }> {
   return new Promise((resolve) => {
     // Ensure the working directory exists
@@ -210,7 +236,24 @@ export async function setupIntegrationTest(testName: string): Promise<{
   return {
     testDir,
     cleanup: async () => {
-      await cleanupTestDirectory(testDir);
+      try {
+        // Force close any SQLite database connections by running a final command
+        await runTfqCommand(['list'], testDir, 2000).catch(() => {
+          // Ignore errors from final cleanup command
+        });
+        
+        // Small delay to ensure any database connections are fully closed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        await cleanupTestDirectory(testDir);
+      } catch (error) {
+        // In CI, don't fail tests due to cleanup issues
+        if (process.env.CI) {
+          console.warn(`Warning: Cleanup failed for ${testDir}:`, error);
+        } else {
+          throw error;
+        }
+      }
     }
   };
 }

@@ -60,7 +60,7 @@ describe('Math operations', () => {
     // Test that the queue was properly set up
     const listResult = await runTfqCommand(['list'], testDir);
     expect(listResult.output).toContain('verification-test.test.ts');
-  }, 15000);
+  }, process.env.CI ? 10000 : 15000);
 
   it('should re-enqueue test when verification fails', async () => {
     // Create a test file that will fail
@@ -89,7 +89,7 @@ describe('Math operations', () => {
     // The test should still be in queue since we didn't actually fix it
     const listAfterTest = await runTfqCommand(['list'], testDir);
     expect(listAfterTest.output).toContain(path.basename(testFile));
-  }, 15000);
+  }, process.env.CI ? 10000 : 15000);
 
   it('should handle verification test execution errors gracefully', async () => {
     // Create a test file with syntax errors that will crash the test runner
@@ -113,7 +113,7 @@ describe('Broken test', () => {
     // Test should still be in queue
     const listResult = await runTfqCommand(['list'], testDir);
     expect(listResult.output).toContain(path.basename(testFile));
-  }, 15000);
+  }, process.env.CI ? 10000 : 15000);
 
   it('should track failure count and respect max retries', async () => {
     // Create config with maxRetries = 2
@@ -149,7 +149,7 @@ describe('Math operations', () => {
     // Check that failure count is tracked
     const listResult = await runTfqCommand(['list'], testDir);
     expect(listResult.output).toMatch(/2 failures|failureCount.*2/);
-  }, 15000);
+  }, process.env.CI ? 10000 : 15000);
 });
 
 // Helper function now imported from test-utils.js
