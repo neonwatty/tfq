@@ -85,9 +85,10 @@ export class ClaudeService {
       };
     }
     
-    // Use the user's custom prompt if provided, otherwise use default
-    let prompt = this.config.prompt || 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.';
-    
+    // Use the prompt from config (either user's custom or default from ClaudeConfigManager)
+    // The prompt is guaranteed to be defined by ClaudeConfigManager defaults
+    let prompt = this.config.prompt!;
+
     // Replace the {testFilePath} placeholder with the actual file path
     prompt = prompt.replace('{testFilePath}', filePath);
     
@@ -374,11 +375,12 @@ export class ClaudeService {
           console.log('🔍 Verifying fix by running the test...');
         }
         
-        // Create TestRunner with the specific test file
+        // Create TestRunner with the specific test file and auto-detection
         const verificationRunner = new TestRunner({
           testPath: testPath,
           verbose: false,
-          configPath: options.configPath
+          configPath: options.configPath,
+          autoDetect: true  // Ensure framework is properly detected for verification
         });
         
         const testResult = verificationRunner.run();

@@ -496,12 +496,47 @@ describe('ClaudeService.fixNextTest() Method', () => {
         configPath: configPath
       });
       
-      // Verify TestRunner was created with config path
+      // Verify TestRunner was created with config path and autoDetect
       expect(TestRunner).toHaveBeenCalledWith({
         testPath: testPath,
         verbose: false,
-        configPath: configPath
+        configPath: configPath,
+        autoDetect: true
       });
+    });
+
+    it('should create TestRunner with autoDetect for framework detection', async () => {
+      // Setup: Add test to queue
+      const testPath = '/path/to/jest-test.spec.js';
+      mockQueue.enqueue(testPath, 1, 'Test failed');
+
+      // Mock successful test verification
+      const mockTestRunner = {
+        run: vi.fn().mockReturnValue({
+          success: true,
+          exitCode: 0,
+          duration: 1000,
+          error: null
+        })
+      };
+      vi.mocked(TestRunner).mockImplementation(() => mockTestRunner as any);
+
+      // Execute
+      await claudeService.fixNextTest(mockQueue, {
+        useJsonOutput: true
+      });
+
+      // Verify TestRunner was created with autoDetect flag
+      expect(TestRunner).toHaveBeenCalledWith(
+        expect.objectContaining({
+          testPath: testPath,
+          verbose: false,
+          autoDetect: true
+        })
+      );
+
+      // Verify this ensures proper framework detection
+      expect(TestRunner).toHaveBeenCalledTimes(1);
     });
   });
 

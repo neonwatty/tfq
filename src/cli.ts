@@ -1268,7 +1268,8 @@ program
           try {
             const runner = new TestRunner({
               verbose: false,
-              configPath: program.opts().config
+              configPath: program.opts().config,
+              autoDetect: true  // Ensure proper framework detection for initial test discovery
             });
             
             const testResult = runner.run();

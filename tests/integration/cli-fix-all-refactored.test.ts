@@ -60,8 +60,9 @@ describe('Test ${i}', () => {
     it('should handle empty queue scenario', async () => {
       // Run fix-all on empty queue
       const result = await runTfqCommand(['fix-all', '--max-iterations', '1'], testDir);
-      
-      expect(result.success).toBe(false);
+
+      // Empty queue is a successful completion scenario per CLAUDE.md
+      expect(result.success).toBe(true);
       // Should show that it's trying to discover failures or show empty results
       const allOutput = result.output + result.error;
       expect(allOutput).toContain('TFQ Automated Test Fixer');

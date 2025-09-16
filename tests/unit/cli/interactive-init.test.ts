@@ -27,7 +27,19 @@ const mockInitService = {
 
 // Mock ClaudeConfigManager
 const mockClaudeConfigManager = {
-  detectClaudePath: vi.fn()
+  detectClaudePath: vi.fn(),
+  getClaudeConfig: vi.fn(() => ({
+    enabled: false,
+    maxIterations: 20,
+    testTimeout: 900000,
+    prompt: "First, detect the testing framework by checking for jest.config.* or vitest.config.* files and examining package.json scripts. Then run the test file at {testFilePath} using the appropriate test runner (npm run test if available, otherwise npx vitest run for Vitest or npx jest --watchAll=false for Jest). Debug any errors you encounter one at a time. After fixing errors, run the test again with the same test runner to verify that your changes have fixed any errors. Finally, run npm run lint to ensure code quality.",
+    verbose: true,
+    outputFormat: 'stream-json',
+    maxRetries: 0,
+    retryDelay: 1000,
+    retryBackoffMultiplier: 2,
+    maxRetryDelay: 30000
+  }))
 };
 
 vi.mock('../../../src/services/claude/config.js', () => ({
@@ -154,7 +166,7 @@ describe('interactiveInit', () => {
         enabled: true,
         maxIterations: 5,
         testTimeout: 900000,
-        prompt: "Fix the syntax and logic errors in this test file and return only the corrected code",
+        prompt: "First, detect the testing framework by checking for jest.config.* or vitest.config.* files and examining package.json scripts. Then run the test file at {testFilePath} using the appropriate test runner (npm run test if available, otherwise npx vitest run for Vitest or npx jest --watchAll=false for Jest). Debug any errors you encounter one at a time. After fixing errors, run the test again with the same test runner to verify that your changes have fixed any errors. Finally, run npm run lint to ensure code quality.",
         verbose: true,
         outputFormat: "stream-json",
         claudePath: '/custom/claude'

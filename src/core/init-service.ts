@@ -135,14 +135,17 @@ export class InitService {
         const { ClaudeConfigManager } = await import('../services/claude/config.js');
         const claudeManager = new ClaudeConfigManager();
         const detectedPath = claudeManager.detectClaudePath();
-        
+
+        // Get the default configuration from ClaudeConfigManager
+        const defaultClaudeConfig = claudeManager.getClaudeConfig();
+
         // Enable Claude if explicitly requested OR if Claude is detected and not explicitly disabled
         if (withClaude === true || (detectedPath && !skipClaude)) {
           config.claude = {
             enabled: true,
             maxIterations: 10,
             testTimeout: 900000,
-            prompt: "Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.",
+            prompt: defaultClaudeConfig.prompt, // Use the default prompt from ClaudeConfigManager
             _comment: "The {testFilePath} placeholder will be replaced with the actual test file path when Claude is invoked",
             // Enable verbose output by default to show Claude's real-time progress
             verbose: true,

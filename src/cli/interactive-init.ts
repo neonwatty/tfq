@@ -130,34 +130,37 @@ export async function interactiveInit(
         const { ClaudeConfigManager } = await import('../services/claude/config.js');
         const claudeManager = new ClaudeConfigManager();
         const detectedPath = claudeManager.detectClaudePath();
-        
+
+        // Get the default configuration from ClaudeConfigManager
+        const defaultClaudeConfig = claudeManager.getClaudeConfig();
+
         if (detectedPath) {
           console.log(chalk.green('✓'), 'Found Claude at:', chalk.cyan(detectedPath));
         } else {
           console.log(chalk.yellow('⚠️'), 'Claude Code CLI not found at standard locations');
           console.log(chalk.gray('You can install it from: https://claude.ai/code'));
         }
-        
+
         const claudePath = await question(
           'Claude executable path (leave empty for auto-detection)',
           detectedPath || ''
         );
-        
+
         const maxIterations = parseInt(await question(
           'Max iterations for fix-all command',
           '10'
         ), 10) || 10;
-        
+
         const testTimeout = parseInt(await question(
           'Timeout per test fix (milliseconds)',
           '900000'
         ), 10) || 900000;
-        
+
         claudeConfig = {
           enabled: true,
           maxIterations,
           testTimeout,
-          prompt: "Fix the syntax and logic errors in this test file and return only the corrected code",
+          prompt: defaultClaudeConfig.prompt, // Use the default prompt from ClaudeConfigManager
           // Enable verbose output by default to show Claude's real-time progress
           verbose: true,
           outputFormat: "stream-json" as const,

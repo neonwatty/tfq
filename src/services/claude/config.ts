@@ -12,7 +12,7 @@ export class ClaudeConfigManager {
       enabled: false,
       maxIterations: 20,
       testTimeout: 900000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time. Then run the test again to verify that your changes have fixed any errors.',
+      prompt: 'First, detect the testing framework by checking for jest.config.* or vitest.config.* files and examining package.json scripts. Then run the test file at {testFilePath} using the appropriate test runner (npm run test if available, otherwise npx vitest run for Vitest or npx jest --watchAll=false for Jest). Debug any errors you encounter one at a time. After fixing errors, run the test again with the same test runner to verify that your changes have fixed any errors. Finally, run npm run lint to ensure code quality.',
       // Enable verbose output by default to show Claude's real-time progress
       verbose: true,
       outputFormat: 'stream-json',
@@ -410,7 +410,7 @@ export class ClaudeConfigManager {
       enabled: false,
       maxIterations: 20,
       testTimeout: 900000,
-      prompt: 'Run the test file at {testFilePath} and debug any errors you encounter one at a time.  Double check your work after making your changes. Then run the test again to verify that your changes have fixed any errors.',
+      prompt: 'First, detect the testing framework by checking for jest.config.* or vitest.config.* files and examining package.json scripts. Then run the test file at {testFilePath} using the appropriate test runner (npm run test if available, otherwise npx vitest run for Vitest or npx jest --watchAll=false for Jest). Debug any errors you encounter one at a time. After fixing errors, run the test again with the same test runner to verify that your changes have fixed any errors. Finally, run npm run lint to ensure code quality.',
       // Enable verbose output by default to show Claude's real-time progress
       verbose: true,
       outputFormat: 'stream-json',

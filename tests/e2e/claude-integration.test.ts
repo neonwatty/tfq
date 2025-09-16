@@ -158,6 +158,39 @@ describe('Claude Integration E2E Tests (Optional)', () => {
       const allFixOutput = fixResult.output + fixResult.error;
       console.log('Fix output preview:', allFixOutput.substring(0, 200) + '...');
 
+      // Step 5.1: Verify framework detection (JavaScript example should use Jest)
+      console.log('Step 5.1: Verifying framework detection in fix-next...');
+      // The JavaScript example uses Jest, so verification should use Jest commands
+      if (allFixOutput.includes('Verifying fix by running the test') ||
+          allFixOutput.includes('verification') ||
+          allFixOutput.includes('test runner')) {
+        // Look for Jest-specific patterns in the output
+        const hasJestIndicators = allFixOutput.includes('jest') ||
+                                  allFixOutput.includes('npx jest') ||
+                                  allFixOutput.includes('--watchAll=false');
+        const hasVitestIndicators = allFixOutput.includes('vitest run') ||
+                                   allFixOutput.includes('npx vitest');
+
+        console.log('Framework detection analysis:', {
+          hasJestIndicators,
+          hasVitestIndicators,
+          isJestProject: true
+        });
+
+        // For Jest projects, we expect Jest indicators and no Vitest indicators
+        if (hasJestIndicators) {
+          console.log('✅ Framework detection working: Jest detected and used');
+        }
+        if (hasVitestIndicators) {
+          console.log('⚠️  Unexpected: Vitest indicators found in Jest project');
+        }
+
+        // Add actual assertions to ensure test fails if wrong framework detected
+        expect(hasVitestIndicators).toBe(false); // Should not use Vitest in Jest project
+      } else {
+        console.log('ℹ️  Verification phase not detected in output - this may be normal for this test scenario');
+      }
+
       if (fixResult.success) {
         console.log('✅ Fix was successful!');
         
@@ -326,6 +359,48 @@ describe('Timeout test', () => {
       expect(allOutput).toMatch(/Starting to fix|Final Results|iteratively/);
 
       console.log('Fix-all output preview:', allOutput.substring(0, 300) + '...');
+
+      // Step 3.1: Verify framework detection in fix-all workflow
+      console.log('Step 3.1: Verifying framework detection in fix-all...');
+      // Check both initial test discovery and verification phases
+      const hasInitialTestDiscovery = allOutput.includes('Queue is empty') ||
+                                      allOutput.includes('Checking for test files') ||
+                                      allOutput.includes('Running tests to discover failures');
+      const hasVerificationPhase = allOutput.includes('Verifying fix') ||
+                                   allOutput.includes('verification') ||
+                                   allOutput.includes('Test verification');
+
+      console.log('Fix-all phases detected:', {
+        hasInitialTestDiscovery,
+        hasVerificationPhase
+      });
+
+      // For Jest projects, both phases should use Jest commands
+      const hasJestIndicators = allOutput.includes('jest') ||
+                                allOutput.includes('npx jest') ||
+                                allOutput.includes('--watchAll=false');
+      const hasVitestIndicators = allOutput.includes('vitest run') ||
+                                 allOutput.includes('npx vitest');
+
+      console.log('Framework detection analysis for fix-all:', {
+        hasJestIndicators,
+        hasVitestIndicators,
+        isJestProject: true
+      });
+
+      if (hasJestIndicators) {
+        console.log('✅ Framework detection working in fix-all: Jest detected and used');
+      }
+      if (hasVitestIndicators) {
+        console.log('⚠️  Unexpected: Vitest indicators found in Jest project during fix-all');
+      }
+
+      // Add actual assertions for fix-all framework detection
+      if (hasInitialTestDiscovery || hasVerificationPhase) {
+        expect(hasVitestIndicators).toBe(false); // Should not use Vitest in Jest project
+      } else {
+        console.log('ℹ️  Neither discovery nor verification phases detected - this may be normal for this test scenario');
+      }
 
       // Step 4: Verify progress was made
       console.log('Step 4: Verifying progress...');
